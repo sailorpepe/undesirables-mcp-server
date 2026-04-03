@@ -1,0 +1,46 @@
+# The Undesirables — Python MCP Server Dependencies
+# All versions pinned for supply chain security (no auto-upgrades)
+# Last audited: 2026-03-31
+
+# SECURITY: Upgraded from 2.0.0 to patch CVE-2025-62801 (cmd injection),
+# CVE-2025-69196 (OAuth bypass), CVE-2025-53366 (DoS)
+fastmcp==3.1.1
+pydantic==2.12.5
+
+# === AI / ML ===
+numpy==2.4.2
+scikit-learn==1.8.0
+scipy==1.17.1
+sentence-transformers==3.4.1
+
+# === Audio Analysis ===
+librosa==0.11.0
+soundfile==0.13.1
+sounddevice==0.5.5
+soxr==1.0.0
+audioread==3.1.0
+
+# === Image Processing ===
+pillow==12.1.1
+opencv-python==4.13.0.92
+opencv-contrib-python==4.13.0.92
+mediapipe==0.10.32
+
+# === Web / Networking ===
+requests==2.32.5
+urllib3==2.6.3
+certifi==2026.2.25
+
+# === Security Auditing (optional — install manually) ===
+# semgrep
+# slither-analyzer
+
+# === Visualization (optional) ===
+matplotlib==3.10.8
+
+# === Utilities ===
+docker==7.0.0
+msgpack==1.1.2
+typing_extensions==4.15.0
+platformdirs==4.9.2
+ijson==3.3.0
