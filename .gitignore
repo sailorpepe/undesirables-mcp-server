@@ -1,0 +1,53 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+*.egg-info/
+dist/
+build/
+characters/
+
+# Secrets — NEVER commit
+.env
+
+# Logs
+*.log
+mcp_engine.log
+
+# RAG index (generated per-workspace)
+.rag_index/
+.rag_manifest.json
+
+# Memory graph (per-soul)
+memory_graph.json
+
+# Sandbox temp
+/tmp/undsr_sandbox/
+
+# Generated 3D models
+generated_3d/
+
+# Voice output
+voice_output/
+
+# Test files
+test_*.js
+test_*.py
+
+# IDE
+.vscode/
+.idea/
+
+# PyInstaller spec (build artifact)
+*.spec
+
+# Audit reports (local only)
+mcp_audit_batch*/
+
+# Local cache
+.cache/
+shap_e_model_cache/
+build_py_backup/
+output_3d/

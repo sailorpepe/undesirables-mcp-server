@@ -1,0 +1,17 @@
+{
+  "agent": "Student The Contrarian",
+  "token_id": 1,
+  "strategy": "Structured Trader",
+  "archetype": "The Contrarian",
+  "conviction_threshold": 74,
+  "disposition_penalty": 0,
+  "version": "1.0.0",
+  "predictions": [],
+  "reflections": [],
+  "accuracy": {
+    "total": 0,
+    "correct": 0,
+    "rate": null,
+    "last_calibration": null
+  }
+}

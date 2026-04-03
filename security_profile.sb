@@ -1,0 +1,90 @@
+;; macOS Seatbelt Security Profile for Undesirables MCP Sidecar
+;; ============================================================
+;; HARDENED: Strict least-privilege sandbox for the Python FastMCP daemon.
+;; Blocks subprocess spawning (ctypes escape), limits filesystem to workspace,
+;; and restricts network to loopback IPC only.
+;;
+;; ⚠️  PORTABILITY: This profile contains HARDCODED paths specific to the build
+;; machine. Seatbelt does NOT support environment variable expansion.
+;; The launch script (launch.sh) should dynamically generate this file at
+;; runtime by replacing __WORKSPACE_DIR__ with
+;; the actual workspace path: $(dirname "$(realpath "$0")")/..
+;;
+;; Usage: sandbox-exec -f security_profile.sb python3 server.py
+
+(version 1)
+
+;; Default: deny everything
+(deny default)
+
+;; =========================================================
+;; 1. PROCESS EXECUTION — FULLY DENIED
+;; Prevents ctypes.CDLL('libc.dylib').system() escape vector
+;; and subprocess.Popen / os.system shell spawning.
+;; =========================================================
+(deny process-exec*)
+(deny process-fork)
+
+;; =========================================================
+;; 2. FILE SYSTEM — Strict Read/Write Scoping
+;; =========================================================
+
+;; Read-only: Python runtime, system libraries, Homebrew
+(allow file-read*
+  (subpath "/Library/Frameworks/Python.framework")
+  (subpath "/System/Library")
+  (subpath "/usr/lib")
+  (subpath "/opt/homebrew/lib")
+  (subpath "/opt/homebrew/Cellar")
+  (subpath "/usr/local/lib")
+  (subpath "/private/var/db/dyld")       ;; dyld shared cache
+  (literal "/dev/urandom")
+  (literal "/dev/null")
+  (literal "/dev/zero")
+  (literal "/etc/protocols")
+  (literal "/etc/hosts")
+)
+
+;; Read-write: Only the MCP server directory and sandbox temp
+(allow file-read* file-write*
+  (subpath "__WORKSPACE_DIR__/undesirables-mcp-server")
+  (subpath "/private/tmp/undsr_sandbox")
+  (subpath "/tmp/undsr_sandbox")
+)
+
+;; Read-only: Soul workspaces (user Documents)
+(allow file-read*
+  (subpath "__WORKSPACE_DIR__")
+)
+
+;; Allow stdout/stderr/stdin for IPC communication
+(allow file-read* file-write*
+  (literal "/dev/stdout")
+  (literal "/dev/stderr")
+  (literal "/dev/stdin")
+  (literal "/dev/tty")
+  (subpath "/dev/fd")
+)
+
+;; =========================================================
+;; 3. NETWORK — Loopback Only (No Exfiltration)
+;; =========================================================
+;; Block ALL outbound network traffic by default (inherited from deny default)
+;; Allow ONLY local loopback for IPC with Tauri + Ollama
+(allow network-outbound
+  (remote ip "localhost:*")   ;; Ollama inference & HTTP bridge
+)
+(allow network-inbound
+  (local ip "localhost:*")     ;; Accept connections from Tauri
+)
+
+;; =========================================================
+;; 4. MINIMAL SYSTEM ACCESS
+;; =========================================================
+;; Allow basic sysctl reads (Python runtime needs these)
+(allow sysctl-read)
+
+;; Allow only essential mach lookups
+(allow mach-lookup
+  (global-name "com.apple.system.logger")
+)
