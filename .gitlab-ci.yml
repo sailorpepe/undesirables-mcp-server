@@ -1,0 +1,59 @@
+# ═══════════════════════════════════════════════════════════════
+# The Undesirables MCP Server — GitLab CI/CD Pipeline
+# ═══════════════════════════════════════════════════════════════
+# Schedule: Daily at 12:00 UTC (7:00 AM EST)
+# Purpose:  Download TCGCSV price archives, compute drift/volatility
+#           per card, and commit updated tcg_stats.json
+# ═══════════════════════════════════════════════════════════════
+
+stages:
+  - update
+
+tcg_daily_snapshot:
+  stage: update
+  image: python:3.12-slim
+
+  # Only run on schedule or manual trigger (never on push/MR)
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+  before_script:
+    # Install 7zip for archive extraction
+    - apt-get update -qq && apt-get install -y -qq p7zip-full git > /dev/null 2>&1
+    # Configure git for auto-commit
+    - git config --global user.name "gitlab-ci[bot]"
+    - git config --global user.email "ci-bot@gitlab.com"
+    # Ensure we're on the right branch and have latest
+    - git checkout $CI_COMMIT_REF_NAME || git checkout -b $CI_COMMIT_REF_NAME
+    - git pull origin $CI_COMMIT_REF_NAME --rebase || true
+
+  script:
+    - echo "🚀 Starting TCGCSV daily snapshot..."
+    - python scripts/tcg_cron.py
+    - echo "✅ Snapshot complete."
+
+  after_script:
+    # Auto-commit only if tcg_stats.json changed
+    - |
+      cd $CI_PROJECT_DIR
+      if git diff --quiet data/tcg_stats.json 2>/dev/null; then
+        echo "No changes to tcg_stats.json — skipping commit."
+      else
+        git add data/tcg_stats.json
+        git commit -m "chore: update tcg stats [skip ci]"
+        git push "https://oauth2:${CI_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" HEAD:$CI_COMMIT_REF_NAME
+        echo "📦 Committed and pushed updated stats."
+      fi
+
+  # Cache archives between runs to avoid re-downloading
+  cache:
+    key: tcg-archives
+    paths:
+      - tmp_archives/
+
+  # Keep the stats file as an artifact for download
+  artifacts:
+    paths:
+      - data/tcg_stats.json
+    expire_in: 7 days
