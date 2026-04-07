@@ -20,6 +20,10 @@ sounddevice==0.5.5
 soxr==1.0.0
 audioread==3.1.0
 
+# === Voice (Kokoro TTS — 82M params, 54 voices, Apache 2.0) ===
+kokoro>=0.9.4
+misaki[en]>=0.8.0
+
 # === Image Processing ===
 pillow==12.1.1
 opencv-python==4.13.0.92
