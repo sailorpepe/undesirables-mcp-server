@@ -21,8 +21,9 @@ soxr==1.0.0
 audioread==3.1.0
 
 # === Voice (Kokoro TTS — 82M params, 54 voices, Apache 2.0) ===
-kokoro>=0.9.4
-misaki[en]>=0.8.0
+# NOTE: kokoro >=0.8.0 requires Python <3.13. Use Python 3.12 on Windows.
+kokoro>=0.7.0
+misaki[en]>=0.7.0
 
 # === Image Processing ===
 pillow==12.1.1
