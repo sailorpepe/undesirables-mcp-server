@@ -2797,14 +2797,10 @@ def soul_speak(text: str, soul_openness: int = 50, soul_conscientiousness: int =
         workspace = str(_get_memory_path().parent)
         output_path = os.path.join(workspace, "voice_output", "speech.wav")
 
-    # Evict chat model to free VRAM
-    try:
-        requests.post("http://localhost:11434/api/generate",
-                      json={"model": "gemma3:12b", "keep_alive": 0}, timeout=5)
-    except Exception:
-        pass
+    # NOTE: Kokoro (82MB) is small enough to coexist with chat model.
+    # Old Bark engine needed VRAM eviction here — Kokoro does not.
 
-    result = text_to_speech(text, output_path, voice=preset["voice"], speed=preset["speed"])
+    result = text_to_speech(text, output_path, voice=preset["voice"], speed=preset["speed"], pitch_semitones=preset.get("pitch_semitones", 0.0))
     result["voice_preset"] = preset
     return json.dumps(result)
 
@@ -3012,6 +3008,106 @@ def scan_media_file(file_paths_json: str) -> str:
         results.append(check_media_integrity(p))
             
     return json.dumps({"status": "media_scan_complete", "reports": results})
+
+
+# ============================================================
+# WEB SEARCH — DuckDuckGo Instant Answer API (No API key needed)
+# Security: Read-only GET requests. No user data ever sent.
+# ============================================================
+
+@mcp.tool()
+def web_search(query: str, max_results: int = 5) -> str:
+    """Search the web using DuckDuckGo for current information.
+    Returns summaries, related topics, and source URLs.
+    No API key required. No tracking. Privacy-first.
+    
+    Args:
+        query: What to search for (e.g. 'ETH price today', 'latest NFT news')
+        max_results: Maximum number of related topics to return (1-10, default 5)
+    """
+    import requests
+    import json
+    
+    max_results = max(1, min(10, max_results))
+    
+    try:
+        # DuckDuckGo Instant Answer API — free, no auth
+        resp = requests.get(
+            "https://api.duckduckgo.com/",
+            params={
+                "q": query,
+                "format": "json",
+                "no_redirect": "1",
+                "no_html": "1",
+                "skip_disambig": "1",
+            },
+            timeout=10,
+            headers={"User-Agent": "TheUndesirables/1.2.0"}
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        
+        results = {
+            "query": query,
+            "abstract": data.get("AbstractText", ""),
+            "abstract_source": data.get("AbstractSource", ""),
+            "abstract_url": data.get("AbstractURL", ""),
+            "answer": data.get("Answer", ""),
+            "definition": data.get("Definition", ""),
+            "definition_source": data.get("DefinitionSource", ""),
+            "related_topics": [],
+            "image": data.get("Image", ""),
+        }
+        
+        # Extract related topics
+        for topic in data.get("RelatedTopics", [])[:max_results]:
+            if isinstance(topic, dict):
+                if "Text" in topic:
+                    results["related_topics"].append({
+                        "text": topic.get("Text", ""),
+                        "url": topic.get("FirstURL", ""),
+                    })
+                elif "Topics" in topic:
+                    # Nested category
+                    for sub in topic.get("Topics", [])[:2]:
+                        results["related_topics"].append({
+                            "text": sub.get("Text", ""),
+                            "url": sub.get("FirstURL", ""),
+                        })
+        
+        # Build a human-readable summary for the AI
+        summary_parts = []
+        if results["answer"]:
+            summary_parts.append(f"Direct Answer: {results['answer']}")
+        if results["abstract"]:
+            summary_parts.append(f"Summary ({results['abstract_source']}): {results['abstract']}")
+            if results["abstract_url"]:
+                summary_parts.append(f"Source: {results['abstract_url']}")
+        if results["definition"]:
+            summary_parts.append(f"Definition: {results['definition']}")
+        
+        if results["related_topics"]:
+            summary_parts.append("\nRelated:")
+            for i, rt in enumerate(results["related_topics"], 1):
+                summary_parts.append(f"  {i}. {rt['text']}")
+                if rt.get("url"):
+                    summary_parts.append(f"     → {rt['url']}")
+        
+        if not summary_parts:
+            summary_parts.append(f"No instant results for '{query}'. Try a more specific query.")
+        
+        results["summary"] = "\n".join(summary_parts)
+        
+        logger.info(f"[WEB SEARCH] Query: '{query}' → {len(results['related_topics'])} topics")
+        return json.dumps(results)
+        
+    except requests.exceptions.Timeout:
+        return json.dumps({"error": "Search timed out. Check your internet connection."})
+    except requests.exceptions.ConnectionError:
+        return json.dumps({"error": "No internet connection. Web search requires online access."})
+    except Exception as e:
+        logger.error(f"[WEB SEARCH] Failed: {e}")
+        return json.dumps({"error": str(e)})
 
 
 def enable_memory_lock():
