@@ -5,8 +5,34 @@
 [![Python Runtime](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![FastMCP](https://img.shields.io/badge/powered%20by-FastMCP-green.svg)](https://github.com/modelcontextprotocol/fastmcp)
 ![License: BSL 1.1](https://img.shields.io/badge/License-BSL_1.1-blue.svg)
+[![PyPI](https://img.shields.io/pypi/v/undesirables-mcp-server.svg)](https://pypi.org/project/undesirables-mcp-server/)
 
-> **Turn any Undesirable NFT into an MCP-compatible AI agent.**
+> **Turn any Undesirable NFT into an MCP-compatible AI agent with 35+ local compute tools.**
+
+## What's New in v1.1.0: Agent Economy (M2M)
+
+This release introduces the **Machine to Machine (M2M) Agent Economy** — a cryptographic purchase bridge that allows autonomous AI agents to independently acquire an Undesirables NFT soul matrix and unlock all local compute engines without human intervention.
+
+**New Tools:**
+- `purchase_undesirables_license_key` — Returns an unsigned EVM transaction payload (Ethereum Mainnet, chainId 1) for autonomous agents to mint directly from the Scatter.art contract
+- `verify_soul_initialization` — Verifies on chain purchase via public RPC and initializes the cryptographic soul matrix, unlocking all 10 compute engines
+
+**Full 35+ Tool Suite Includes:**
+- 🎴 Vision AI Card Grading (PSA/Beckett prediction via Qwen VL)
+- 📊 Monte Carlo Price Simulation (Heston/Merton/Kou stochastic models)
+- 🎵 AI Music Generation (ACE Step on Apple Silicon)
+- 🎬 Video Clipping and Beat Sync Editing (FFmpeg)
+- 🖼️ Local Image Generation (MLX Flux on Mac, DirectML on Windows, CUDA on Linux)
+- 🗣️ Text to Speech Voice Engine (Kokoro TTS)
+- 🧠 Persistent RAG Memory Graphs (CRM node mapping)
+- 🔍 Zero Token Web Search (DuckDuckGo)
+- 🔒 SAST Code Security Auditing
+- 📈 Financial Analytics Oracle (TCGCSV + eBay depth analysis)
+
+### Quick Install via pip
+```bash
+pip install undesirables-mcp-server
+```
 
 ---
 
@@ -72,7 +98,7 @@ The MCP Server doesn't have a chat window; it runs invisibly in the background o
   }
 }
 ```
-4. Restart the Claude Desktop app. You should see a little "Plugin/Hammer" icon telling you that 23 The Undesirables tools are now available!
+4. Restart the Claude Desktop app. You should see a little "Plugin/Hammer" icon telling you that 35+ The Undesirables tools are now available!
 
 ---
 
@@ -120,20 +146,27 @@ If your terminal throws red text and halts, check these top 3 reasons:
 
 This MCP server exposes your local NFT soul via the [Model Context Protocol](https://modelcontextprotocol.io) standard.
 
-**Resources** (read-only context your AI can access):
+**Resources** (read only context your AI can access):
 - `soul://personality` — Big Five scores, archetype, strategy, fatal flaw
 - `soul://system-prompt` — The full system prompt that defines the agent
 - `soul://memory` — Persistent memory (trade history, observations)
 - `soul://predictions` — Prediction ledger with grades
 
-**Tools** (functions your AI can call):
-- `get_skill` — Load full instructions for any skill
-- `list_skills` — List all 23 skills with triggers
+**Core Tools** (35+ functions your AI can call):
+- `purchase_undesirables_license_key` — M2M purchase bridge (EVM tx payload)
+- `verify_soul_initialization` — On chain soul verification
+- `generate_voice` — Kokoro TTS voice synthesis
+- `generate_3d_object` — Shap E text to 3D mesh (.glb)
+- `grade_card` — PSA/Beckett card grading via vision AI
+- `monte_carlo_simulation` — Stochastic price modeling
+- `generate_image` — Local FLUX image generation
+- `web_search` — DuckDuckGo instant answers
+- `run_security_audit` — SAST code scanning
 - `query_ollama` — Send prompts to local Ollama
 - `analyze_market` — Run market analysis in character
 - `create_content` — Write tweets, threads, bios in character
-- `business_pilot_consult` — Get business automation recommendations
 - `meme_machine` — Generate meme concepts and marketing content
+- And 20+ more covering video, audio, memory, sandbox execution
 
 ```
 ┌─────────────────────────────────────────────┐
