@@ -79,6 +79,11 @@ KOKORO_FEMALE = ["af_heart", "af_sky", "af_bella", "af_sarah", "af_alloy"]
 def soul_to_voice_preset(traits: dict) -> dict:
     """
     Map Big Five personality scores to a deterministic, unique voice preset.
+    Each of the 4,444 Undesirables gets a unique combination of:
+    - Base voice (from 10 Kokoro voices)
+    - Speed (0.85x — 1.20x)
+    - Pitch shift (-3 to +3 semitones)
+    This creates thousands of perceptually distinct voices.
     """
     o = traits.get("openness", 50)
     c = traits.get("conscientiousness", 50)
@@ -97,9 +102,9 @@ def soul_to_voice_preset(traits: dict) -> dict:
     seed = int(o**2 + c**2 + e**2 + a**2 + n**2)
     base_voice = voice_list[seed % len(voice_list)]
 
-    preset = {"voice": base_voice, "speed": 1.0}
+    preset = {"voice": base_voice, "speed": 1.0, "pitch_semitones": 0.0}
 
-    # Fine-tune speed and add broader parameter variation based on specific traits
+    # Fine-tune speed based on specific traits
     # Extraversion increases speed, Conscientiousness decreases it
     speed_mod = (e - 50) * 0.005 + (50 - c) * 0.004
     # Neuroticism makes speech slightly faster/rushed
@@ -109,20 +114,28 @@ def soul_to_voice_preset(traits: dict) -> dict:
     # Clamp speed to a safe intelligible range for Kokoro (too fast = artifacts/laughing)
     preset["speed"] = max(0.85, min(1.20, preset["speed"]))
 
+    # Pitch shift: Extraversion raises pitch, Agreeableness adds warmth (lower)
+    # Range: -3.0 to +3.0 semitones (subtle but noticeable)
+    pitch_mod = (e - 50) * 0.04 + (50 - a) * 0.02
+    # Openness adds slight expressiveness variation
+    pitch_mod += (o - 50) * 0.01
+    preset["pitch_semitones"] = round(max(-3.0, min(3.0, pitch_mod)), 2)
+
     preset["dominant_trait"] = "unique_hash"
     return preset
 
 
-def text_to_speech(text: str, output_path: str, voice: str = "af_heart",
-                   speed: float = 1.0) -> dict:
+def text_to_speech(text: str, output_path: str, voice: str = "am_michael",
+                   speed: float = 1.0, pitch_semitones: float = 0.0) -> dict:
     """
-    Convert text to speech using Kokoro TTS.
+    Convert text to speech using Kokoro TTS with optional pitch shifting.
 
     Args:
         text: Text to speak
         output_path: Where to save the WAV file
-        voice: Kokoro voice preset name
+        voice: Kokoro voice preset name (default: am_michael)
         speed: Speaking speed multiplier (0.7-1.4)
+        pitch_semitones: Pitch shift in semitones (-6.0 to +6.0). Negative = deeper, Positive = higher.
 
     Returns:
         {"status": str, "path": str, "duration_ms": int}
@@ -142,6 +155,7 @@ def text_to_speech(text: str, output_path: str, voice: str = "af_heart",
         text = text[:MAX_TTS_TEXT]
 
     speed = max(0.7, min(1.4, speed))
+    pitch_semitones = max(-6.0, min(6.0, pitch_semitones))
 
     # Ensure output directory exists
     os.makedirs(os.path.dirname(output_path) if os.path.dirname(output_path) else '.', exist_ok=True)
@@ -152,6 +166,7 @@ def text_to_speech(text: str, output_path: str, voice: str = "af_heart",
     try:
         # Generate audio — Kokoro returns generator of (graphemes, phonemes, audio) tuples
         import soundfile as sf
+        import numpy as np
 
         all_audio = []
         for _, _, audio in pipeline(text, voice=voice, speed=speed):
@@ -161,14 +176,27 @@ def text_to_speech(text: str, output_path: str, voice: str = "af_heart",
             return {"status": "error", "message": "No audio generated"}
 
         # Concatenate all chunks
-        import numpy as np
         full_audio = np.concatenate(all_audio)
+
+        # Apply pitch shifting if requested (makes each NFT voice unique)
+        if abs(pitch_semitones) > 0.1:
+            try:
+                import librosa
+                # librosa pitch_shift works on float32 audio at the given sample rate
+                full_audio = librosa.effects.pitch_shift(
+                    y=full_audio.astype(np.float32),
+                    sr=24000,
+                    n_steps=pitch_semitones
+                )
+                logger.info(f"[VOICE] Pitch shifted by {pitch_semitones:+.1f} semitones")
+            except ImportError:
+                logger.warning("[VOICE] librosa not available — skipping pitch shift")
 
         # Save as WAV (24kHz, mono)
         sf.write(output_path, full_audio, 24000)
 
         duration_ms = int(len(full_audio) / 24000 * 1000)
-        logger.info(f"[VOICE] TTS: {len(text)} chars → {duration_ms}ms audio")
+        logger.info(f"[VOICE] TTS: {len(text)} chars → {duration_ms}ms audio ({voice}, speed={speed}, pitch={pitch_semitones:+.1f})")
 
         return {
             "status": "success",
@@ -176,6 +204,7 @@ def text_to_speech(text: str, output_path: str, voice: str = "af_heart",
             "duration_ms": duration_ms,
             "voice": voice,
             "speed": speed,
+            "pitch_semitones": pitch_semitones,
         }
 
     except Exception as e:
