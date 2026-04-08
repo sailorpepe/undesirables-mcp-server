@@ -189,11 +189,81 @@ This MCP server exposes your local NFT soul via the [Model Context Protocol](htt
 └─────────────────────────────────────────────┘
 ```
 
+## Agent Framework Integration
+
+### LangChain / LangGraph
+```python
+from langchain_mcp_adapters.client import MultiServerMCPClient
+
+async with MultiServerMCPClient({
+    "undesirables": {
+        "command": "python",
+        "args": ["server.py", "--workspace", "/path/to/soul_folder/0420"],
+        "cwd": "/path/to/undesirables-mcp-server"
+    }
+}) as client:
+    tools = client.get_tools()
+    # 35+ tools now available to any LangChain agent
+```
+
+### CrewAI
+```python
+from crewai import Agent
+from crewai_tools import MCPServerAdapter
+
+mcp = MCPServerAdapter(
+    command="python",
+    args=["server.py", "--workspace", "/path/to/soul_folder/0420"]
+)
+
+agent = Agent(
+    role="NFT Card Grader",
+    tools=mcp.tools,
+    goal="Grade trading cards and run Monte Carlo price simulations"
+)
+```
+
+### OpenAI Agents SDK
+```python
+from agents import Agent
+from agents.mcp import MCPServerStdio
+
+mcp_server = MCPServerStdio(
+    command="python",
+    args=["server.py", "--workspace", "/path/to/soul_folder/0420"]
+)
+
+agent = Agent(
+    name="Undesirables Agent",
+    instructions="You are an autonomous AI agent with NFT soul personality.",
+    mcp_servers=[mcp_server]
+)
+```
+
+### ElizaOS
+```bash
+npm install plugin-undesirables
+```
+Add to your `character.json`:
+```json
+{
+  "settings": {
+    "UNDESIRABLES_WORKSPACE": "/path/to/soul_folder/0420"
+  },
+  "plugins": ["plugin-undesirables"]
+}
+```
+
+---
+
 ## The Undesirables Ecosystem
 
 - **Website**: [the-undesirables.com](https://the-undesirables.com)
 - **Mint**: [scatter.art/the-undesirables](https://scatter.art/the-undesirables)
 - **Docs**: [the-undesirables.com/docs](https://the-undesirables.com/docs)
+- **PyPI**: [pypi.org/project/undesirables-mcp-server](https://pypi.org/project/undesirables-mcp-server/)
+- **mcp.so**: [Listed on mcp.so](https://mcp.so)
+- **ElizaOS Plugin**: [plugin-undesirables](https://gitlab.com/meme-merchants/plugin-undesirables)
 
 ---
 
