@@ -91,7 +91,7 @@ def auto_crop_card(image_path: Any) -> Any:
 def grade_tcg_card(card_image_paths: str, card_name: str) -> str:
     ...
 
-def search_ebay_market(query: str, limit: int) -> str:
+def search_ebay_market(query: str, limit: int, app_id: str, client_secret: str) -> str:
     ...
 
 def get_skill(skill_name: str) -> str:
@@ -100,7 +100,6 @@ def get_skill(skill_name: str) -> str:
 def list_skills() -> str:
     ...
 
-ALLOWED_OLLAMA_MODELS = frozenset({'llama3.1:8b', 'llama3:8b', 'qwen2.5:latest', 'qwen2.5:7b', 'qwen2.5vl:7b', 'qwen3:latest', 'qwen3:8b', 'qwen3.5:latest', 'gemma3:12b', 'gemma3:4b', 'mistral:7b', 'deepseek-r1:8b', 'phi4:latest'})
 def query_ollama(prompt: str, model: str) -> str:
     ...
 
@@ -120,20 +119,6 @@ def viral_clip_extractor(video_path: str, clip_duration: int, num_clips: int, ou
     ...
 
 def update_memory(entry: str) -> str:
-    ...
-
-ACE_STEP_DIR = Path.home() / 'Documents' / 'Meme Merchants' / 'ACE-Step'
-ACE_OUTPUT_DIR = Path.home() / 'Documents' / 'Meme Merchants' / 'ace_output'
-def _check_acestep_server() -> bool:
-    ...
-
-def generate_music(genre_tags: str, lyrics: str, duration: int, seed: int, guidance_scale: float, output_name: str) -> str:
-    ...
-
-def analyze_beats(audio_path: str) -> str:
-    ...
-
-def apply_pillow_effect(img: Any, effect_type: str, intensity: int, t: float, extra_img: Any) -> Any:
     ...
 
 def validate_secure_path(filepath_str: str) -> Path:
@@ -193,10 +178,13 @@ def query_memory_graph(query: str, node_type: str, limit: int, workspace_path: s
 def get_memory_subgraph(node_id: str, depth: int, workspace_path: str) -> str:
     ...
 
-def soul_speak(text: str, soul_openness: int, soul_conscientiousness: int, soul_extraversion: int, soul_agreeableness: int, soul_neuroticism: int, output_path: str) -> str:
+def execute_code(code: str, timeout: int) -> str:
     ...
 
-def soul_rap(lyrics: str, mode: str) -> str:
+def execute_shell(command: str, timeout: int) -> str:
+    ...
+
+def soul_speak(text: str, soul_openness: int, soul_conscientiousness: int, soul_extraversion: int, soul_agreeableness: int, soul_neuroticism: int, output_path: str) -> str:
     ...
 
 def soul_listen(audio_path: str) -> str:
@@ -273,17 +261,15 @@ import pymatting.alpha.estimate_alpha_cf
 import pymatting.foreground
 import pymatting.foreground.estimate_foreground_ml
 import io
-import posixpath
 import cv2
-import urllib
-import urllib.parse
-import ipaddress
-import socket
+import posixpath
 import PIL.ExifTags
 import tempfile
 import pillow_heif
 import tcg_oracle
 import ebay_oracle
+import urllib
+import urllib.parse
 import huggingface_hub
 import huggingface_hub.inference
 import huggingface_hub.inference._client
@@ -291,21 +277,13 @@ import huggingface_hub.utils
 import torch
 import diffusers
 import torch_directml
-import scipy.io
-import scipy.io.wavfile
-import scipy.signal
 import datetime
 import security
-import psutil
-import gradio_client
-import gradio_client.Client
-import PIL.ImageEnhance
-import math
-import PIL.ImageChops
 import urllib.request
 import emotion_engine
 import rag_engine
 import memory_graph
+import executor
 import voice_engine
 import three_d_engine
 import ctypes

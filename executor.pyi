@@ -6,7 +6,6 @@ from docker.errors import DockerException, ImageNotFound
 from pathlib import Path
 from typing import Any
 from typing_extensions import Self
-import ast
 import docker
 import logging
 import os
@@ -32,7 +31,6 @@ class SandboxResult:
     def __init__(self: Self, stdout: str, stderr: str, exit_code: int, timed_out: bool, sandbox_dir: str) -> None: ...
     def to_dict(self: Self) -> dict: ...
 
-BLOCKED_MODULES = {'subprocess', 'shutil', 'os', 'socket', 'http', 'urllib', 'requests', 'smtplib', 'ftplib', 'telnetlib', 'ctypes', 'importlib', 'pathlib'}
 def _check_dangerous_code(code: str) -> str:
     ...
 
@@ -56,7 +54,6 @@ import signal
 import subprocess
 import logging
 import platform
-import ast
 import pathlib
 import pathlib.Path
 import docker

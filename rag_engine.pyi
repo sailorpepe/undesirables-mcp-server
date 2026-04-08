@@ -10,7 +10,6 @@ import json
 import logging
 import numpy
 import os
-import re
 
 _embedder = None
 _db = None
@@ -46,7 +45,6 @@ __name__ = ...
 
 # Modules used internally, to allow implicit dependencies to be seen:
 import os
-import re
 import json
 import hashlib
 import logging
@@ -60,4 +58,3 @@ import sentence_transformers.SentenceTransformer
 import torch
 import lancedb
 import posixpath
-import ijson

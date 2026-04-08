@@ -48,7 +48,6 @@ import kokoro
 import pywhispercpp
 import pywhispercpp.model
 import posixpath
-import pathlib
 import soundfile
 import numpy
 import re
