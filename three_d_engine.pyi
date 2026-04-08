@@ -40,7 +40,6 @@ import shap_e.util
 import shap_e.util.notebooks
 import security
 import posixpath
-import pathlib
 import numpy
 import PIL
 import PIL.Image

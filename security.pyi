@@ -10,7 +10,6 @@ import logging
 import os
 import platform
 import subprocess
-import sys
 import time
 
 BLOCKED_PATHS = ['/etc', '/var', '/usr', '/System', '/Library', '/bin', '/sbin', '/private', '/tmp']
@@ -49,18 +48,15 @@ __name__ = ...
 
 # Modules used internally, to allow implicit dependencies to be seen:
 import os
-import sys
 import pathlib
 import pathlib.Path
 import posixpath
-import platform
-import unicodedata
-import _winapi
 import subprocess
 import json
 import logging
 import time
 import contextlib
+import platform
 import msvcrt
 import fcntl
 import re

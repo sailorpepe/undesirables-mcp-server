@@ -50,6 +50,4 @@ import pathlib
 import pathlib.Path
 import math
 import statistics
-import ijson
-import posixpath
 import sys

@@ -26,7 +26,7 @@ def search_ebay_listings(query: Any, limit: Any) -> Any:
 def synthesize_history_from_listings(listings: Any) -> Any:
     ...
 
-def get_market_depth(card_name: Any, limit: Any) -> Any:
+def get_market_depth(card_name: Any, limit: Any, app_id: Any, client_secret: Any) -> Any:
     ...
 
 
