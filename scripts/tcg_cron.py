@@ -38,7 +38,7 @@ TARGET_CATEGORIES = [
 
 ARCHIVE_URL = "https://tcgcsv.com/archive/tcgplayer/prices-{date}.ppmd.7z"
 
-WORK_DIR = Path(os.environ.get("CI_PROJECT_DIR", Path(__file__).parent))
+WORK_DIR = Path(os.environ.get("CI_PROJECT_DIR", Path(__file__).parent.parent))
 TEMP_DIR = WORK_DIR / "tmp_archives"
 HISTORY_DIR = WORK_DIR / "tmp_history"
 OUTPUT_FILE = WORK_DIR / "data" / "tcg_stats.json"
