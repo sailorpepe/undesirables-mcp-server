@@ -31,9 +31,16 @@ TARGET_CATEGORIES = [
     1,   # Magic: The Gathering
     2,   # Yu-Gi-Oh!
     3,   # Pokémon
+    62,  # Flesh & Blood
+    63,  # Digimon
     68,  # One Piece
     71,  # Lorcana
+    79,  # Star Wars Unlimited
+    80,  # Dragon Ball Fusion World
+    81,  # Union Arena
     85,  # Pokémon (Japan)
+    86,  # Gundam
+    89,  # LoL Riftbound
 ]
 
 ARCHIVE_URL = "https://tcgcsv.com/archive/tcgplayer/prices-{date}.ppmd.7z"
