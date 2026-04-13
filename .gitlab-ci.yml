@@ -21,15 +21,11 @@ tcg_daily_snapshot:
     - if: $CI_PIPELINE_SOURCE == "web"
 
   before_script:
-    # Ensure brew tools are in PATH (macOS shell executor)
     - export PATH="/opt/homebrew/bin:$PATH"
-    # Verify dependencies
     - python3 --version
-    - 7za --version || echo "WARNING: 7za not found"
-    # Configure git for auto-commit
+    - 7za --version || echo "WARNING 7za not found"
     - git config --global user.name "gitlab-ci[bot]"
     - git config --global user.email "ci-bot@gitlab.com"
-    # Ensure we're on the right branch and have latest
     - git checkout $CI_COMMIT_REF_NAME || git checkout -b $CI_COMMIT_REF_NAME
     - git pull origin $CI_COMMIT_REF_NAME --rebase || true
 
