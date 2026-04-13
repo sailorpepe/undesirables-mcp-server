@@ -4,6 +4,7 @@
 # Schedule: Daily at 12:00 UTC (7:00 AM EST)
 # Purpose:  Download TCGCSV price archives, compute drift/volatility
 #           per card, and commit updated tcg_stats.json
+# Runner:   Self-hosted Mac Mini (shell executor)
 # ═══════════════════════════════════════════════════════════════
 
 stages:
@@ -11,7 +12,8 @@ stages:
 
 tcg_daily_snapshot:
   stage: update
-  image: python:3.12-slim
+  # No Docker image — runs natively on Mac Mini shell executor
+  # image: python:3.12-slim  (removed for macOS shell executor)
 
   # Only run on schedule or manual trigger (never on push/MR)
   rules:
@@ -19,8 +21,11 @@ tcg_daily_snapshot:
     - if: $CI_PIPELINE_SOURCE == "web"
 
   before_script:
-    # Install 7zip for archive extraction
-    - apt-get update -qq && apt-get install -y -qq p7zip-full git > /dev/null 2>&1
+    # Ensure brew tools are in PATH (macOS shell executor)
+    - export PATH="/opt/homebrew/bin:$PATH"
+    # Verify dependencies
+    - python3 --version
+    - 7za --version || echo "WARNING: 7za not found"
     # Configure git for auto-commit
     - git config --global user.name "gitlab-ci[bot]"
     - git config --global user.email "ci-bot@gitlab.com"
@@ -29,13 +34,15 @@ tcg_daily_snapshot:
     - git pull origin $CI_COMMIT_REF_NAME --rebase || true
 
   script:
+    - export PATH="/opt/homebrew/bin:$PATH"
     - echo "🚀 Starting TCGCSV daily snapshot..."
-    - python scripts/tcg_cron.py
+    - python3 scripts/tcg_cron.py
     - echo "✅ Snapshot complete."
 
   after_script:
     # Auto-commit only if tcg_stats.json changed
     - |
+      export PATH="/opt/homebrew/bin:$PATH"
       cd $CI_PROJECT_DIR
       if git diff --quiet data/tcg_stats.json 2>/dev/null; then
         echo "No changes to tcg_stats.json — skipping commit."
