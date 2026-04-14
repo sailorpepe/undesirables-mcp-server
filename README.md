@@ -1,3 +1,4 @@
+<!-- mcp-name: undesirables-mcp-server -->
 # The Undesirables — MCP Server
 
 ![The Undesirables MCP Banner](./og_preview.png)
