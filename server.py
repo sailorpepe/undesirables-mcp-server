@@ -32,6 +32,33 @@ from pathlib import Path
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
+# ============================================================
+# LangSmith Tracing — auto-instruments all tool invocations
+# Set LANGSMITH_API_KEY in environment to enable
+# ============================================================
+LANGSMITH_ENABLED = False
+try:
+    if os.environ.get("LANGSMITH_API_KEY"):
+        os.environ.setdefault("LANGSMITH_TRACING", "true")
+        os.environ.setdefault("LANGSMITH_PROJECT", "tcg-oracle-mcp")
+        from langsmith import traceable, Client as LangSmithClient
+        LANGSMITH_ENABLED = True
+    else:
+        def traceable(*args, **kwargs):
+            """No-op decorator when LangSmith is not configured."""
+            def decorator(fn):
+                return fn
+            if args and callable(args[0]):
+                return args[0]
+            return decorator
+except ImportError:
+    def traceable(*args, **kwargs):
+        def decorator(fn):
+            return fn
+        if args and callable(args[0]):
+            return args[0]
+        return decorator
+
 # Determine if librosa is available (will be explicitly required in requirements.txt)
 try:
     import librosa
@@ -3350,5 +3377,7 @@ def enable_memory_lock():
 # Run the MCP server
 if __name__ == "__main__":
     enable_memory_lock()
+    if LANGSMITH_ENABLED:
+        logger.info(f"🔬 [LANGSMITH] Tracing enabled → project: {os.environ.get('LANGSMITH_PROJECT', 'default')}")
     main()
     mcp.run()
