@@ -93,7 +93,7 @@ def get_hw_encoder():
                 return "h264_qsv"  # Intel Quick Sync
             if "h264_vaapi" in result.stdout:
                 return "h264_vaapi"  # Intel/AMD on Linux
-        except:
+        except (subprocess.SubprocessError, OSError):
             pass
     return "libx264"  # Universal software fallback
 
@@ -126,21 +126,14 @@ PREDICTIONS = []
 
 import threading
 
-# ============================================================
-# SECURITY FIX: Sys Audit Hook for RCE mitigation
-# NOTE: Removed overly aggressive `ctypes.dlopen` strict blocking
-# because it panics Core ML / OpenCV bindings during matrix operations.
-# ============================================================
+# Audit hook: block dynamic memory mapping to mitigate RCE vectors.
+# ctypes.dlopen is intentionally allowed — required by Core ML / OpenCV.
 def fastmcp_audit_hook(event, args):
     if event in ["mmap.__new__"]:
-        logger.error(f"[SECURITY ALERT] Blocked malicious OS execution attempt via {event}")
-        raise PermissionError(f"Security Error: Dynamic library mapping ({event}) is strictly prohibited.")
+        logger.error(f"[SECURITY] Blocked dynamic library mapping: {event}")
+        raise PermissionError(f"Security Error: {event} is prohibited.")
 sys.addaudithook(fastmcp_audit_hook)
 
-# NOTE: Auto pip-install on boot has been REMOVED (supply chain risk).
-# Dependencies are now pinned in requirements.txt and bundled with the app.
-# To update security tools manually, run:
-#   pip install --upgrade semgrep slither-analyzer exifread pillow
 logger.info("[SECURITY] Using bundled dependency versions (no auto-upgrade).")
 
 # ============================================================
@@ -348,7 +341,7 @@ def create_banner(
             nonlocal img
             try:
                 font = ImageFont.truetype("/System/Library/Fonts/Impact.ttc", size)
-            except:
+            except (OSError, IOError):
                 font = ImageFont.load_default()
             
             glow = Image.new("RGBA", img.size, (0,0,0,0))
@@ -393,13 +386,9 @@ def create_banner(
 
 class DeepMattingPipeline:
     def __init__(self, nft_style: str = "2d"):
-        """
-        Initializes the Sub-Pixel Segmentation Graph.
-        Swapped to 'birefnet-general' (DIS) as it is vastly superior to 'isnet-anime' 
-        at identifying complex topological holes and trapped negative space.
-        """
+        """Initialize DIS background removal pipeline using birefnet-general model."""
         import rembg
-        model_name = "birefnet-general" if nft_style.lower() == "2d" else "birefnet-general"
+        model_name = "birefnet-general"
         self.session = rembg.new_session(model_name)
 
     def extract(self, input_image, fg_threshold=245, bg_threshold=10, erode_size=15):
@@ -411,9 +400,8 @@ class DeepMattingPipeline:
         import warnings
         import os, sys
         
-        # --- THE FIX: SCOPED PYMATTING MONKEY PATCH ---
-        # The Tikhonov Ridge shift stabilizes the Levin Matting Laplacian 
-        # singularity caused by flat piece-wise 2D anime colors.
+        # Scoped pymatting patch: add ridge shift to ichol solver to handle
+        # flat-color regions in 2D art that cause Laplacian singularities.
         # Patching submodules directly ensures internal imports use the shifted solver.
         import pymatting.preconditioner as pym_prec
         import pymatting.alpha.estimate_alpha_cf as acf
@@ -449,10 +437,8 @@ class DeepMattingPipeline:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 
-                # 1. Neural Inference (Get Raw Mask)
-                # CRITICAL: We bypass rembg's internal `alpha_matting=True`.
-                # post_process_mask MUST be False to prevent OpenCV from morphologically 
-                # obliterating thin wisps of smoke and cementing over holes.
+                # Get raw neural mask without rembg's built-in alpha matting
+                # or post-processing, which destroys fine details like smoke wisps.
                 extracted_pil = rembg.remove(
                     input_image,
                     session=self.session,
@@ -463,18 +449,15 @@ class DeepMattingPipeline:
                 # Raw neural network probability mask [0, 255]
                 raw_mask = np.array(extracted_pil)[:, :, 3]
                 
-                # 2. Asymmetric Trimap Generation (The Topological Fix)
+                # Asymmetric trimap: erode foreground to expand unknown band,
+                # preserve background anchors for negative space holes.
                 is_fg = raw_mask > fg_threshold
                 is_bg = raw_mask < bg_threshold
                 
                 if erode_size > 0:
-                    # Aggressively erode FOREGROUND to expand the "unknown" band inwards 
-                    # allowing the solver to calculate soft smoke/hair tapers.
                     fg_structure = np.ones((erode_size, erode_size), dtype=np.bool_)
                     eroded_fg = scipy.ndimage.binary_erosion(is_fg, structure=fg_structure)
-                    
-                    # Do NOT erode the BACKGROUND. This guarantees that small negative space 
-                    # holes preserve their `0.0` anchor for the Laplacian solver.
+                    # Background is NOT eroded — preserves negative space anchors.
                     eroded_bg = is_bg
                 else:
                     eroded_fg = is_fg
@@ -484,17 +467,15 @@ class DeepMattingPipeline:
                 trimap[eroded_fg] = 1.0
                 trimap[eroded_bg] = 0.0
                 
-                # 3. Mathematical Alpha Matting
+                # Alpha matting with closed-form solver
                 rgb_normalized = original_rgb.astype(np.float64) / 255.0
-                
-                # The patched ichol solver inherently handles the flat-color rank deficiency here
                 true_alpha = estimate_alpha_cf(
                     rgb_normalized, 
                     trimap, 
                     laplacian_kwargs={"epsilon": 1e-6}
                 )
                 
-                # 4. Spatial Color Decontamination (Foreground Un-premultiplication)
+                # Foreground color decontamination
                 true_foreground = estimate_foreground_ml(
                     rgb_normalized, 
                     true_alpha,
@@ -502,7 +483,7 @@ class DeepMattingPipeline:
                 )
                 
         finally:
-            # 5. Safely Restore the MCP JSON-RPC Stream and unpatch
+            # Restore stdout/stderr and unpatch ichol
             sys.stdout.flush()
             sys.stderr.flush()
             
@@ -516,7 +497,7 @@ class DeepMattingPipeline:
             if hasattr(acf, 'ichol'): acf.ichol = original_ichol
             if hasattr(fml, 'ichol'): fml.ichol = original_ichol
         
-        # 6. Recombine un-premultiplied RGB with the mathematically perfect Alpha
+        # Recombine decontaminated RGB with computed alpha
         clean_rgb = np.clip(true_foreground * 255.0, 0, 255).astype(np.uint8)
         clean_alpha = np.clip(true_alpha * 255.0, 0, 255).astype(np.uint8)
         final_rgba = np.dstack((clean_rgb, clean_alpha))
@@ -547,11 +528,11 @@ def remove_background(image: str, model: str = "2d", fg_threshold: int = 245, bg
     global global_matting_engines
 
     try:
-        logger.info(f"[PFP EXTRACTOR] Waking Sub-Pixel Segmentation Graph (model={model}, fg={fg_threshold}, bg={bg_threshold}, erode={erode_size})...")
+        logger.info(f"[PFP EXTRACTOR] Loading model={model}, fg={fg_threshold}, bg={bg_threshold}, erode={erode_size}")
         
         # Lazy initialization per model type
         if model not in global_matting_engines:
-            logger.info(f"[PFP EXTRACTOR] Booting {model} weights into RAM via ONNXRuntime...")
+            logger.info(f"[PFP EXTRACTOR] Initializing {model} via ONNXRuntime")
             global_matting_engines[model] = DeepMattingPipeline(nft_style=model)
         engine = global_matting_engines[model]
         
@@ -562,8 +543,7 @@ def remove_background(image: str, model: str = "2d", fg_threshold: int = 245, bg
             img_data = base64.b64decode(image)
             input_image = Image.open(BytesIO(img_data)).convert("RGBA")
 
-        # Strip Background utilizing spatial math
-        logger.info("[PFP EXTRACTOR] Calculating spatial color affinities across alpha channel...")
+        logger.info("[PFP EXTRACTOR] Running alpha matting...")
         import warnings
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -574,29 +554,26 @@ def remove_background(image: str, model: str = "2d", fg_threshold: int = 245, bg
         output_path = Path.home() / "Documents" / "Meme Merchants" / out_name
         output_image.save(output_path, format="PNG")
         
-        # Encode back to base64 for pure memory bridging to the UI layout
+        # Encode to base64 for UI display
         buffered = BytesIO()
         output_image.save(buffered, format="PNG")
         b64_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
         
-        logger.info(f"[PFP EXTRACTOR] Decontamination Complete: {output_path}")
+        logger.info(f"[PFP EXTRACTOR] Done: {output_path}")
         return json.dumps({
             "status": "success",
-            "message": f"Background organically stripped using DIS Alpha Matting.",
+            "message": "Background removed via DIS alpha matting.",
             "path": str(output_path),
             "base64": b64_str
         })
     except Exception as e:
-        logger.error(f"[PFP EXTRACTOR] Hardware Fault: {str(e)}")
+        logger.error(f"[PFP EXTRACTOR] Error: {str(e)}")
         import traceback
         traceback.print_exc()
         return json.dumps({"error": str(e)})
 
 
-# ==============================================================================
-# THE COUNCIL — Multi-Agent Resonance Engine
-# Migrated from scripts/council.py into a first-class MCP tool.
-# ==============================================================================
+# Multi-agent debate tool — 3 souls debate a topic using Big Five personality roles
 
 SOULS_DIR = Path.home() / "Documents" / "Meme Merchants" / "hashlips_art_engine" / "build_undesirables" / "souls"
 
@@ -686,15 +663,15 @@ def invoke_council(topic: str, token_ids: str = "") -> str:
     proposer, risk_mgr, executor = _assign_council_roles(agents)
     logger.info(f"[COUNCIL] Proposer: {proposer['name']} (O:{proposer['scores']['Openness']}%) | Risk: {risk_mgr['name']} (N:{risk_mgr['scores']['Neuroticism']}%) | Executor: {executor['name']} (C:{executor['scores']['Conscientiousness']}%)")
     
-    # Phase 1: THE SIGNAL
+    # 1. Proposer presents thesis
     task_1 = f"Topic for debate:\n\"{topic}\"\n\nProvide your opening argument or thesis on this topic. Be opinionated and stay true to your personality."
     proposal = _ollama_generate(proposer['prompt'], task_1)
     
-    # Phase 2: THE CRITIQUE
+    # 2. Risk manager critiques
     task_2 = f"Review this argument from {proposer['name']}:\n\n\"{proposal}\"\n\nCritique this position. What are the flaws, risks, and blind spots? Give a GO or NO GO recommendation."
     critique = _ollama_generate(risk_mgr['prompt'], task_2)
     
-    # Phase 3: THE VERDICT
+    # 3. Executor synthesizes verdict
     task_3 = f"The Proposer ({proposer['name']}) argued:\n\"{proposal}\"\n\nThe Risk Manager ({risk_mgr['name']}) responded:\n\"{critique}\"\n\nYou are the Executor. Synthesize both positions and deliver a final verdict. Include a conviction score (0-100) and a clear GO or NO GO decision."
     verdict = _ollama_generate(executor['prompt'], task_3)
     
@@ -1308,7 +1285,7 @@ def generate_meme(
                         font = ImageFont.truetype(selected_font_path, font_size)
                     else:
                         font = ImageFont.load_default()
-                except:
+                except (OSError, IOError):
                     font = ImageFont.load_default()
                     
                 bbox = draw.textbbox((0,0), text, font=font)
@@ -1320,7 +1297,7 @@ def generate_meme(
                     try:
                         if selected_font_path: font = ImageFont.truetype(selected_font_path, font_size)
                         else: font = ImageFont.load_default()
-                    except:
+                    except (OSError, IOError):
                         break
                     bbox = draw.textbbox((0,0), text, font=font)
                     tw, th = bbox[2]-bbox[0], bbox[3]-bbox[1]
@@ -2102,7 +2079,7 @@ def viral_clip_extractor(
         if audio_proxy.exists():
             try:
                 audio_proxy.unlink()
-            except:
+            except OSError:
                 pass
 
 
@@ -2328,9 +2305,8 @@ def main():
             print("⚠️  No workspace specified. Use --workspace or --token")
             print("   Server will start but resources will be empty.")
 
-    # Phase 14: Direct CLI Execution (SECURED — explicit whitelist)
+    # CLI tool execution via --execute flag (whitelist only)
     if args.execute:
-        # SECURITY: Only allow explicitly mapped tools — never globals()
         ALLOWED_CLI_TOOLS = {
             "create_banner": create_banner,
             "produce_video": produce_video,
@@ -2357,65 +2333,6 @@ def main():
             return
 
 
-# ============================================================
-# Web Search — DuckDuckGo (Free, no API key)
-# ============================================================
-
-@mcp.tool()
-def web_search(query: str, num_results: int = 5) -> str:
-    """Search the web for current information using DuckDuckGo.
-    Returns titles, URLs, and snippets. Free, no API key required.
-
-    Args:
-        query: Search query (e.g. "Apple Business Connect setup 2026")
-        num_results: Number of results to return (max 10)
-    """
-    import urllib.parse
-    import re
-
-    num_results = min(num_results, 10)
-    encoded_query = urllib.parse.quote_plus(query)
-    url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
-
-    try:
-        import urllib.request
-        req = urllib.request.Request(url, headers={
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
-        })
-        with urllib.request.urlopen(req, timeout=10) as response:
-            html = response.read().decode("utf-8", errors="ignore")
-
-        # Parse results from DuckDuckGo HTML
-        results = []
-        # Find result blocks
-        result_blocks = re.findall(
-            r'<a rel="nofollow" class="result__a" href="([^"]+)"[^>]*>(.*?)</a>.*?'
-            r'<a class="result__snippet"[^>]*>(.*?)</a>',
-            html, re.DOTALL
-        )
-
-        for href, title, snippet in result_blocks[:num_results]:
-            # Clean HTML tags
-            title = re.sub(r'<[^>]+>', '', title).strip()
-            snippet = re.sub(r'<[^>]+>', '', snippet).strip()
-            # Decode DuckDuckGo redirect URL
-            actual_url = href
-            if "uddg=" in href:
-                actual_url = urllib.parse.unquote(href.split("uddg=")[1].split("&")[0])
-            results.append({
-                "title": title,
-                "url": actual_url,
-                "snippet": snippet,
-            })
-
-        if not results:
-            return json.dumps({"query": query, "results": [], "note": "No results found. Try a different query."})
-
-        return json.dumps({"query": query, "results": results, "count": len(results)})
-
-    except Exception as e:
-        logger.error(f"[WEB SEARCH] Failed: {e}")
-        return json.dumps({"error": str(e), "query": query})
 
 
 # ============================================================
@@ -3326,10 +3243,8 @@ def verify_soul_initialization(tx_hash: str) -> str:
 
 
 def enable_memory_lock():
-    """Paranoid memory lock: Instruct the OS not to swap/page our active RAM to disk.
-    
-    Also suppresses core dumps and Python faulthandler tracebacks to prevent
-    mlockall circumvention via diagnostic file writes.
+    """Pin process memory to RAM via mlockall(). Disables core dumps
+    and faulthandler to prevent sensitive data from being written to disk.
     """
     import platform
     import ctypes
