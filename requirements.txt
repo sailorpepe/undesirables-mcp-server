@@ -49,3 +49,4 @@ msgpack==1.1.2
 typing_extensions==4.15.0
 platformdirs==4.9.2
 ijson==3.3.0
+langsmith>=0.4.0
