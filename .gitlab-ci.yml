@@ -33,7 +33,9 @@ tcg_daily_snapshot:
     - export PATH="/opt/homebrew/bin:$PATH"
     - echo "🚀 Starting TCGCSV daily snapshot..."
     - python3 scripts/tcg_cron.py
-    - echo "✅ Snapshot complete."
+    - echo "✅ JSON snapshot complete. Importing to SQLite..."
+    - python3 scripts/import_to_sqlite.py
+    - echo "✅ SQLite import complete."
 
   after_script:
     # Auto-commit only if tcg_stats.json changed
