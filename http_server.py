@@ -2,8 +2,11 @@ import sys
 import json
 import asyncio
 import inspect
-from http.server import HTTPServer, BaseHTTPRequestHandler
+import io
 from pathlib import Path
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import JSONResponse
+import uvicorn
 
 # Dynamically resolve the MCP server directory
 M_DIR = Path(__file__).resolve().parent
@@ -27,88 +30,109 @@ ALLOWED_TOOLS = frozenset({
     "market_depth_analysis", "monte_carlo_simulation",
 })
 
-class MCPHandler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        try:
-            content_length = int(self.headers.get('Content-Length', 0))
-            if content_length == 0:
-                self._send_error("Empty payload")
-                return
+app = FastAPI()
 
-            post_data = self.rfile.read(content_length)
-            payload = json.loads(post_data.decode('utf-8'))
+def synthesize_sync(text: str, kwargs: dict):
+    from voice_engine import _get_tts, soul_to_voice_preset
+    import numpy as np
+    import soundfile as sf
+    import logging
 
-            tool_name = payload.get("tool_name")
-            args = payload.get("args", {})
+    traits = {
+        "openness": kwargs.get("soul_openness", 50),
+        "conscientiousness": kwargs.get("soul_conscientiousness", 50),
+        "extraversion": kwargs.get("soul_extraversion", 50),
+        "agreeableness": kwargs.get("soul_agreeableness", 50),
+        "neuroticism": kwargs.get("soul_neuroticism", 50),
+    }
+    preset = soul_to_voice_preset(traits)
+    
+    pipeline = _get_tts()
+    if pipeline is None:
+        raise RuntimeError("Kokoro TTS not installed")
 
-            # SECURITY: Prevent MRO traversing
-            if not isinstance(tool_name, str) or tool_name.startswith('_'):
-                self._send_error("Security Error: Malicious dynamic invocation attempt blocked.")
-                return
+    MAX_TTS_TEXT = 5000
+    if len(text) > MAX_TTS_TEXT:
+        text = text[:MAX_TTS_TEXT]
 
-            if not tool_name or tool_name not in ALLOWED_TOOLS:
-                self._send_error(f"Security Error: '{tool_name}' is not a registered MCP tool.")
-                return
+    speed = max(0.7, min(1.4, preset.get("speed", 1.0)))
 
-            func = getattr(server, tool_name, None)
-            if not func or not callable(func):
-                self._send_error(f"Tool '{tool_name}' not found natively in server.py")
-                return
+    all_audio = []
+    # Generate audio
+    for _, _, audio in pipeline(text, voice=preset["voice"], speed=speed):
+        all_audio.append(audio)
 
-            # Validate parameters
-            sig = inspect.signature(func)
-            allowed_params = set(sig.parameters.keys())
-            filtered_args = {k: v for k, v in args.items() if k in allowed_params}
+    if not all_audio:
+        raise RuntimeError("No audio generated")
 
-            # Execute
-            if asyncio.iscoroutinefunction(func):
-                res = asyncio.run(func(**filtered_args))
-            else:
-                res = func(**filtered_args)
+    full_audio = np.concatenate(all_audio)
+    
+    buf = io.BytesIO()
+    sf.write(buf, full_audio, 24000, format='WAV')
+    return buf.getvalue()
 
-            self._send_success({"result": res})
 
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            self._send_error(str(e))
-
-    def _send_success(self, data):
-        data_bytes = json.dumps(data).encode('utf-8')
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Content-Length', str(len(data_bytes)))
-        self.end_headers()
-        self.wfile.write(data_bytes)
-
-    def _send_error(self, err_msg):
-        print(f"[HTTP] Error: {err_msg}", file=sys.stderr)
-        data_bytes = json.dumps({"error": err_msg}).encode('utf-8')
-        self.send_response(500)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Content-Length', str(len(data_bytes)))
-        self.end_headers()
-        self.wfile.write(data_bytes)
+@app.post("/mcp/speak")
+async def speak(request: Request):
+    try:
+        payload = await request.json()
         
-    def log_message(self, format, *args):
-        # Mute standard HTTP logs
-        pass
+        # Offload the heavy TTS to a background thread to prevent blocking 
+        # the FastAPI async event loop
+        wav_bytes = await asyncio.to_thread(synthesize_sync, payload.get("text", ""), payload)
+        
+        return Response(content=wav_bytes, media_type="audio/wav")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/")
+async def mcp_handler(request: Request):
+    """Standard MCP RPC handler over HTTP"""
+    try:
+        payload = await request.json()
+        tool_name = payload.get("tool_name")
+        args = payload.get("args", {})
+
+        # SECURITY: Prevent MRO traversing
+        if not isinstance(tool_name, str) or tool_name.startswith('_'):
+            return JSONResponse({"error": "Security Error: Malicious dynamic invocation attempt blocked."}, status_code=403)
+
+        if not tool_name or tool_name not in ALLOWED_TOOLS:
+            return JSONResponse({"error": f"Security Error: '{tool_name}' is not a registered MCP tool."}, status_code=403)
+
+        func = getattr(server, tool_name, None)
+        if not func or not callable(func):
+            return JSONResponse({"error": f"Tool '{tool_name}' not found natively in server.py"}, status_code=404)
+
+        # Validate parameters
+        sig = inspect.signature(func)
+        allowed_params = set(sig.parameters.keys())
+        filtered_args = {k: v for k, v in args.items() if k in allowed_params}
+
+        # Execute
+        if asyncio.iscoroutinefunction(func):
+            res = await func(**filtered_args)
+        else:
+            # We run native sync MCP tools in a threadpool so they don't block either
+            res = await asyncio.to_thread(func, **filtered_args)
+
+        return JSONResponse({"result": res})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 def main():
-    print("Starting Persistent MCP HTTP Server on port 8740...")
+    print("Starting Persistent FastAPI MCP Server on port 8740...")
     server.enable_memory_lock()
     server.main()
     
-    server_address = ('127.0.0.1', 8740)
-    # Using basic HTTPServer which processes one request at a time sequentially.
-    # This guarantees thread-safety for global ML models (Kokoro, RAG, etc).
-    httpd = HTTPServer(server_address, MCPHandler)
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        httpd.server_close()
+    # Run uvicorn server mapping to the same port the frontend expects
+    uvicorn.run(app, host="127.0.0.1", port=8740, log_level="error")
 
 if __name__ == '__main__':
     main()
