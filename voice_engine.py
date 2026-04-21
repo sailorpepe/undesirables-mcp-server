@@ -179,18 +179,20 @@ def text_to_speech(text: str, output_path: str, voice: str = "am_michael",
         full_audio = np.concatenate(all_audio)
 
         # Apply pitch shifting if requested (makes each NFT voice unique)
-        if abs(pitch_semitones) > 0.1:
-            try:
-                import librosa
-                # librosa pitch_shift works on float32 audio at the given sample rate
-                full_audio = librosa.effects.pitch_shift(
-                    y=full_audio.astype(np.float32),
-                    sr=24000,
-                    n_steps=pitch_semitones
-                )
-                logger.info(f"[VOICE] Pitch shifted by {pitch_semitones:+.1f} semitones")
-            except ImportError:
-                logger.warning("[VOICE] librosa not available — skipping pitch shift")
+        # [DISABLED]: librosa phase vocoder destroys 24kHz Kokoro TTS quality ("muffled") 
+        # and adds ~2-5s of latency per sentence. We rely purely on the 10 distinct base voice models instead.
+        # if abs(pitch_semitones) > 0.1:
+        #     try:
+        #         import librosa
+        #         # librosa pitch_shift works on float32 audio at the given sample rate
+        #         full_audio = librosa.effects.pitch_shift(
+        #             y=full_audio.astype(np.float32),
+        #             sr=24000,
+        #             n_steps=pitch_semitones
+        #         )
+        #         logger.info(f"[VOICE] Pitch shifted by {pitch_semitones:+.1f} semitones")
+        #     except ImportError:
+        #         logger.warning("[VOICE] librosa not available — skipping pitch shift")
 
         # Save as WAV (24kHz, mono)
         sf.write(output_path, full_audio, 24000)
