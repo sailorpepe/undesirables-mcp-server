@@ -49,9 +49,14 @@ def _get_tts():
     global _tts_pipeline
     if _tts_pipeline is None:
         try:
+            # Pin Kokoro to CPU to avoid GPU contention with Ollama.
+            # 82M params runs instantly on M2 Max CPU cores, freeing the
+            # 38-core GPU exclusively for LLM inference.
+            import torch
+            torch.set_default_device('cpu')
             from kokoro import KPipeline
-            _tts_pipeline = KPipeline(lang_code="a")  # 'a' = American English
-            logger.info("[VOICE] Kokoro TTS loaded (82M params)")
+            _tts_pipeline = KPipeline(lang_code="a", device="cpu")
+            logger.info("[VOICE] Kokoro TTS loaded (82M params, pinned to CPU)")
         except ImportError:
             logger.warning("[VOICE] kokoro not installed. Run: pip install kokoro soundfile")
             return None
