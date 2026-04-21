@@ -32,6 +32,16 @@ ALLOWED_TOOLS = frozenset({
 
 app = FastAPI()
 
+# CORS: Allow Tauri webview (tauri://localhost, https://tauri.localhost) and dev server
+# Without this, all fetch() calls from the React frontend are silently blocked.
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Tauri uses custom protocols — wildcard is safest for localhost-only server
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 def synthesize_sync(text: str, kwargs: dict):
     from voice_engine import _get_tts, soul_to_voice_preset
     import numpy as np
