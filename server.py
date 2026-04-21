@@ -1035,6 +1035,44 @@ def grade_tcg_card(card_image_paths: str, card_name: str = "Unknown Card") -> st
                 # group(1) contains the payload for both regex patterns now
                 parsed = json.loads(json_match.group(1))
                 parsed["raw_analysis"] = analysis_match.group(1).strip() if analysis_match else "No visual analysis provided."
+                
+                # --- Inject Deep Think PSA Vault Payout ---
+                try:
+                    import sys
+                    sys.path.append(os.path.expanduser("~/Documents/Meme Merchants/tcg-oracle-tools"))
+                    from tcg_oracle.liquidity_pricer import synthesize_buyback_floor
+                    
+                    # 1. Attempt to extract empirical price & volume from RAG context
+                    emp_price = 5.0 # Low-grade fallback
+                    emp_volume = 0.5 
+                    emp_sigma = 0.12
+                    
+                    if "vol" in locals() and vol and "error" not in vol:
+                        emp_price = float(vol.get('last_price', 5.0))
+                        emp_sigma = float(vol.get('sigma_annual', 0.12))
+                    elif "depth" in locals() and depth and depth.get("market_depth"):
+                        emp_price = float(depth['market_depth'].get('avg_listing_price', 5.0))
+                        emp_sigma = float(depth['market_depth'].get('volatility', 0.12))
+                        emp_volume = float(depth.get('listings_found', 5)) / 14.0 # Fake rolling velocity 
+                        
+                    vault_data = synthesize_buyback_floor(
+                        robust_median_price=emp_price,
+                        daily_sales_volume=emp_volume,
+                        price_volatility_pct=emp_sigma,
+                        is_vintage=False
+                    )
+                    
+                    # Apply logic to the JSON payload heading to the UI
+                    parsed["synthetic_floor_price"] = vault_data.get("synthetic_floor_price")
+                    parsed["status"] = vault_data.get("status")
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to synthesize floor: {e}")
+
+                # Unwrap inner report block if Vision model double-encapsulated it
+                if "report" in parsed and "overall_grade" in parsed["report"]:
+                    parsed = parsed["report"]
+                    
                 return json.dumps({"status": "success", "report": parsed})
             except json.JSONDecodeError:
                 pass
