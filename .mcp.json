@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "undesirables-mcp-server": {
+      "command": "python",
+      "args": ["server.py"],
+      "env": {}
+    }
+  }
+}
