@@ -1,10 +1,10 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.gitlab.meme-merchants/undesirables-mcp-server",
-  "description": "35+ local AI tools: TCG card grading (PSA/Beckett prediction), Monte Carlo price simulation (Heston/Merton/Kou), 370K+ product search across 25 card games, M2M NFT purchase bridge",
+  "name": "io.github.sailorpepe/undesirables-mcp-server",
+  "description": "35+ AI tools for TCG card grading, Monte Carlo pricing, 370K+ product search. BYOK.",
   "repository": {
-    "url": "https://gitlab.com/meme-merchants/undesirables-mcp-server",
-    "source": "gitlab"
+    "url": "https://github.com/sailorpepe/undesirables-mcp-server",
+    "source": "github"
   },
   "version": "1.1.2",
   "packages": [

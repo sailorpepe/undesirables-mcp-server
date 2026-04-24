@@ -1,4 +1,4 @@
-<!-- mcp-name: undesirables-mcp-server -->
+<!-- mcp-name: io.github.sailorpepe/undesirables-mcp-server -->
 # The Undesirables — MCP Server
 
 ![The Undesirables MCP Banner](./og_preview.png)
