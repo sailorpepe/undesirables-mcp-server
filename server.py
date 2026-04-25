@@ -1097,6 +1097,8 @@ def search_ebay_market(query: str, limit: int = 50, app_id: str = "", client_sec
     Args:
         query: Specific search term (e.g. "VeeFriends Series 2", "Pudgy Penguins Toy", "Rolex Submariner")
         limit: Max listings to analyze (default 50)
+        app_id: Optional eBay API App ID. If omitted, uses server environment variable.
+        client_secret: Optional eBay API Client Secret. If omitted, uses server environment variable.
     """
     try:
         import ebay_oracle
@@ -1228,12 +1230,15 @@ def generate_meme(
 
     Args:
         prompt: Text description of the meme base background
-        seed: Random seed for reproducibility (-1 for random)
-        width: Image width in pixels (default 512)
-        height: Image height in pixels (default 512)
-        overlay_image_path: Absolute path to a transparent PNG (e.g. your PFP cutout) to layer on top
-        top_text: Memetic text to draw at the top (impact font with stroke)
-        bottom_text: Memetic text to draw at the bottom (impact font with stroke)
+        seed: Random seed for deterministic generation. Defaults to -1 (random).
+        width: Output image width. Defaults to 512.
+        height: Output image height. Defaults to 512.
+        overlay_image_path: Absolute path to a transparent PNG (e.g. your PFP cutout) to layer on top.
+        top_text: Memetic text to draw at the top (impact font with stroke).
+        bottom_text: Memetic text to draw at the bottom (impact font with stroke).
+        font_style: Font family to use for meme text (e.g., 'Impact', 'Arial').
+        format_type: The layout format for the meme (e.g., 'meme', 'demotivational').
+        visual_style: The artistic style of the generated background (e.g., 'Default', 'Photorealistic').
     """
     import base64
     import random
@@ -2184,6 +2189,11 @@ def video_production_beat_sync(
     """
     Analyzes an audio file for dynamic beat intervals and slices a source video using 
     external binaries to synchronize scene cuts precisely to the detected audio beats.
+
+    Args:
+        audio_filename: Filename of the audio track in the workspace
+        video_filename: Filename of the source video in the workspace
+        output_filename: Desired filename for the output synced video
     """
     if not LIBROSA_AVAILABLE:
         return "Error: Librosa/Numpy dependencies are not installed in the current environment."
@@ -2757,6 +2767,11 @@ def soul_speak(text: str, soul_openness: int = 50, soul_conscientiousness: int =
 
     Args:
         text: Text for the soul to speak.
+        soul_openness: Big Five Openness score (0-100) affecting voice modulation.
+        soul_conscientiousness: Big Five Conscientiousness score (0-100) affecting cadence.
+        soul_extraversion: Big Five Extraversion score (0-100) affecting volume and energy.
+        soul_agreeableness: Big Five Agreeableness score (0-100) affecting pitch softness.
+        soul_neuroticism: Big Five Neuroticism score (0-100) affecting pitch variation and speed.
         output_path: Where to save WAV file. Defaults to workspace temp.
     """
     from voice_engine import text_to_speech, soul_to_voice_preset
