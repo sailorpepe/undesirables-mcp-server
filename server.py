@@ -689,7 +689,10 @@ def invoke_council(topic: str, token_ids: str = "") -> str:
     return json.dumps(result)
 
 
-import cv2
+try:
+    import cv2
+except ImportError:
+    cv2 = None
 import numpy as np
 from PIL import Image
 import io
@@ -698,7 +701,8 @@ import re
 def auto_crop_card(image_path):
     """Uses OpenCV to detect the card boundary and crop the background, returning a PIL Image in memory."""
     try:
-        import cv2
+        if cv2 is None:
+            return Image.open(image_path)
         img = cv2.imread(image_path)
         if img is None: 
             return Image.open(image_path)
