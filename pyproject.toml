@@ -6,7 +6,7 @@ requires-python = ">=3.11"
 readme = "README.md"
 license = {text = "BSL-1.1"}
 authors = [
-    {name = "The Undesirables LLC", email = "theundesirablesnft@gmail.com"},
+    {name = "The Undesirables LLC", email = "theundesirables7@gmail.com"},
 ]
 keywords = [
     "mcp",
