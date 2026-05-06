@@ -35,7 +35,9 @@ tcg_daily_snapshot:
     - python3 scripts/tcg_cron.py
     - echo "✅ JSON snapshot complete. Importing to SQLite..."
     - python3 scripts/import_to_sqlite.py
-    - echo "✅ SQLite import complete."
+    - echo "✅ SQLite import complete. Syncing to Vercel KV..."
+    - python3 scripts/sync_to_vercel_kv.py
+    - echo "✅ Vercel KV sync complete."
 
   after_script:
     # Auto-commit only if tcg_stats.json changed
