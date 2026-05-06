@@ -16,11 +16,18 @@ import sys
 import json
 import sqlite3
 import logging
+import argparse
 from pathlib import Path
 from datetime import datetime
 
 logging.basicConfig(level=logging.INFO, format="[SQLite Import] %(message)s")
 logger = logging.getLogger(__name__)
+
+# ── CLI ─────────────────────────────────────────────────────
+parser = argparse.ArgumentParser(description="Import TCGCSV data into SQLite")
+parser.add_argument("--force-reimport", action="store_true",
+                    help="Truncate price_history and reimport all dates from scratch")
+args = parser.parse_args()
 
 WORK_DIR = Path(os.environ.get("CI_PROJECT_DIR", Path(__file__).parent.parent))
 CACHE_DIR = WORK_DIR / ".cache"
@@ -93,10 +100,17 @@ def import_price_history(conn):
         logger.warning(f"History directory not found: {HISTORY_DIR}")
         return 0
 
-    # Get the current max date in the DB to avoid re-importing old data
-    cursor = conn.execute("SELECT MAX(date) FROM price_history")
-    max_date = cursor.fetchone()[0] or "2000-01-01"
-    logger.info(f"Current max date in price_history: {max_date}")
+    if args.force_reimport:
+        logger.info("🔄 Force reimport: truncating price_history table...")
+        conn.execute("DELETE FROM price_history")
+        conn.commit()
+        max_date = "2000-01-01"
+        logger.info("  Table cleared. Reimporting all dates.")
+    else:
+        # Get the current max date in the DB to avoid re-importing old data
+        cursor = conn.execute("SELECT MAX(date) FROM price_history")
+        max_date = cursor.fetchone()[0] or "2000-01-01"
+        logger.info(f"Current max date in price_history: {max_date}")
 
     # Find all date directories newer than max_date
     date_dirs = sorted([
