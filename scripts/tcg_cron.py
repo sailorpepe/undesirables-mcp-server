@@ -14,6 +14,7 @@ import math
 import time
 import logging
 import sqlite3
+import argparse
 import subprocess
 import urllib.request
 from pathlib import Path
@@ -22,10 +23,16 @@ from datetime import datetime, timedelta
 logging.basicConfig(level=logging.INFO, format="[TCG Cron] %(message)s")
 logger = logging.getLogger(__name__)
 
+# ── CLI ─────────────────────────────────────────────────────
+parser = argparse.ArgumentParser(description="TCGCSV Daily Snapshot Pipeline")
+parser.add_argument("--backfill", type=int, default=None,
+                    help="Override days to fetch (e.g., --backfill 30 for a 30-day backfill)")
+args = parser.parse_args()
+
 # ── Config ──────────────────────────────────────────────────
-DAYS_TO_FETCH = 7           # Daily cron = only need last 7 days (recent fills)
+DAYS_TO_FETCH = args.backfill if args.backfill else 7
 POLITE_DELAY = 3            # Seconds between downloads (respect TCGCSV)
-SAFETY_MIN_DAYS = 1         # Abort if fewer than this many days succeed
+SAFETY_MIN_DAYS = max(1, DAYS_TO_FETCH // 3)  # Scale with fetch window
 
 TARGET_CATEGORIES = [
     1,   # Magic: The Gathering
