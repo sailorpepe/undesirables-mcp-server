@@ -8,6 +8,11 @@ function, which requires Python 3.13. It performs two critical updates:
 1. Imports drift/volatility/lastPrice from data/tcg_stats.json → shroomy_stats table
 2. Imports raw daily prices from tmp_history/ archives → price_history table
 
+Usage:
+  python3 import_to_sqlite.py                   # Normal incremental import
+  python3 import_to_sqlite.py --force-reimport  # Wipe price_history and reimport all
+  python3 import_to_sqlite.py --dedup           # Remove duplicate rows first
+
 Run after tcg_cron.py to keep market_memory.sqlite fresh.
 """
 
@@ -16,11 +21,18 @@ import sys
 import json
 import sqlite3
 import logging
+import argparse
 from pathlib import Path
 from datetime import datetime
 
 logging.basicConfig(level=logging.INFO, format="[SQLite Import] %(message)s")
 logger = logging.getLogger(__name__)
+
+# ── CLI Arguments ───────────────────────────────────────────
+parser = argparse.ArgumentParser(description="Import TCG data to SQLite")
+parser.add_argument("--force-reimport", action="store_true", help="Wipe price_history and reimport everything")
+parser.add_argument("--dedup", action="store_true", help="Remove duplicate date+product rows")
+args = parser.parse_args()
 
 WORK_DIR = Path(os.environ.get("CI_PROJECT_DIR", Path(__file__).parent.parent))
 CACHE_DIR = WORK_DIR / ".cache"
@@ -172,6 +184,28 @@ def main():
     conn = sqlite3.connect(str(DB_PATH))
     init_db(conn)
 
+    # Handle --force-reimport: wipe price_history and reimport from scratch
+    if args.force_reimport:
+        logger.info("🔄 FORCE REIMPORT: Dropping price_history table...")
+        conn.execute("DELETE FROM price_history")
+        conn.commit()
+        logger.info("   price_history cleared — will reimport all dates from tmp_history/")
+
+    # Handle --dedup: remove duplicate product_id + date pairs
+    if args.dedup:
+        logger.info("🔄 DEDUP: Removing duplicate product_id + date rows...")
+        cursor = conn.execute("SELECT COUNT(*) FROM price_history")
+        before = cursor.fetchone()[0]
+        conn.execute("""
+            DELETE FROM price_history WHERE rowid NOT IN (
+                SELECT MIN(rowid) FROM price_history GROUP BY product_id, date
+            )
+        """)
+        conn.commit()
+        cursor = conn.execute("SELECT COUNT(*) FROM price_history")
+        after = cursor.fetchone()[0]
+        logger.info(f"   Removed {before - after:,} duplicate rows ({before:,} → {after:,})")
+
     stats_count = import_shroomy_stats(conn)
     history_count = import_price_history(conn)
 
@@ -180,12 +214,17 @@ def main():
     new_max = cursor.fetchone()[0]
     cursor = conn.execute("SELECT COUNT(*) FROM shroomy_stats")
     stats_total = cursor.fetchone()[0]
+    cursor = conn.execute("SELECT COUNT(*) FROM price_history")
+    history_total = cursor.fetchone()[0]
+    cursor = conn.execute("SELECT COUNT(DISTINCT product_id) FROM price_history")
+    unique_products = cursor.fetchone()[0]
 
     conn.close()
 
     logger.info(f"── Summary ──")
     logger.info(f"  shroomy_stats: {stats_total:,} total products")
-    logger.info(f"  price_history max date: {new_max}")
+    logger.info(f"  price_history: {history_total:,} total rows ({unique_products:,} unique products)")
+    logger.info(f"  price_history date range: → {new_max}")
     logger.info(f"  New rows imported: {history_count:,}")
     logger.info(f"Pipeline complete.")
 

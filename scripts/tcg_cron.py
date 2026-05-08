@@ -4,6 +4,11 @@ TCGCSV Daily Snapshot Pipeline — GitLab CI Cron Job
 Downloads yesterday's price archive from TCGCSV, extracts target categories,
 and computes rolling drift/volatility stats per card.
 
+Usage:
+  python3 tcg_cron.py                   # Default: last 7 days
+  python3 tcg_cron.py --backfill 365    # Backfill 1 year of history
+  python3 tcg_cron.py --force-reimport  # Re-download even cached archives
+
 Ported from Shroomy Simulator (download-tcg-history.ts + import-tcg-csv.ts)
 """
 
@@ -16,14 +21,22 @@ import logging
 import sqlite3
 import subprocess
 import urllib.request
+import argparse
 from pathlib import Path
 from datetime import datetime, timedelta
 
 logging.basicConfig(level=logging.INFO, format="[TCG Cron] %(message)s")
 logger = logging.getLogger(__name__)
 
+# ── CLI Arguments ───────────────────────────────────────────
+parser = argparse.ArgumentParser(description="TCGCSV Daily Snapshot Pipeline")
+parser.add_argument("--backfill", type=int, default=7, help="Number of days to fetch (default: 7, max: 400)")
+parser.add_argument("--force-reimport", action="store_true", help="Re-download even if archive is cached")
+args = parser.parse_args()
+
 # ── Config ──────────────────────────────────────────────────
-DAYS_TO_FETCH = 7           # Daily cron = only need last 7 days (recent fills)
+DAYS_TO_FETCH = min(args.backfill, 400)  # Cap at 400 days max
+FORCE_REIMPORT = args.force_reimport
 POLITE_DELAY = 3            # Seconds between downloads (respect TCGCSV)
 SAFETY_MIN_DAYS = 1         # Abort if fewer than this many days succeed
 
@@ -245,7 +258,7 @@ def main():
         logger.info(f"[{i}/{DAYS_TO_FETCH}] Processing {date_str}...")
 
         # Download if not cached
-        if not archive_path.exists():
+        if not archive_path.exists() or FORCE_REIMPORT:
             if i > 1:
                 time.sleep(POLITE_DELAY)
             if not download_file(url, archive_path):
