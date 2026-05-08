@@ -50,7 +50,7 @@ First, open your Terminal or Command Prompt and clone this repository. After clo
 
 ### 🍎 On Mac / Linux
 ```bash
-git clone https://gitlab.com/meme-merchants/undesirables-mcp-server.git
+git clone https://github.com/sailorpepe/undesirables-mcp-server.git
 cd undesirables-mcp-server
 python3 -m venv venv
 source venv/bin/activate
@@ -59,7 +59,7 @@ pip install -r requirements.txt
 
 ### 🪟 On Windows
 ```bash
-git clone https://gitlab.com/meme-merchants/undesirables-mcp-server.git
+git clone https://github.com/sailorpepe/undesirables-mcp-server.git
 cd undesirables-mcp-server
 python -m venv venv
 venv\Scripts\activate
@@ -153,13 +153,14 @@ This MCP server exposes your local NFT soul via the [Model Context Protocol](htt
 - `soul://memory` — Persistent memory (trade history, observations)
 - `soul://predictions` — Prediction ledger with grades
 
-**Core Tools** (35+ functions your AI can call):
+**Core Tools** (34 functions your AI can call):
+- `grade_tcg_card` — 3-stage PSA/Beckett grading: Qwen Vision LLM + OpenCV centering + BGS capping
+- `monte_carlo_simulation` — Stochastic price modeling (Heston/Merton/Kou)
+- `search_ebay_market` — Live eBay market depth, price distributions, arbitrage detection
 - `purchase_undesirables_license_key` — M2M purchase bridge (EVM tx payload)
 - `verify_soul_initialization` — On chain soul verification
 - `generate_voice` — Kokoro TTS voice synthesis
 - `generate_3d_object` — Shap E text to 3D mesh (.glb)
-- `grade_card` — PSA/Beckett card grading via vision AI
-- `monte_carlo_simulation` — Stochastic price modeling
 - `generate_image` — Local FLUX image generation
 - `web_search` — DuckDuckGo instant answers
 - `run_security_audit` — SAST code scanning
@@ -264,7 +265,9 @@ Add to your `character.json`:
 - **Docs**: [the-undesirables.com/docs](https://the-undesirables.com/docs)
 - **PyPI**: [pypi.org/project/undesirables-mcp-server](https://pypi.org/project/undesirables-mcp-server/)
 - **mcp.so**: [Listed on mcp.so](https://mcp.so)
-- **ElizaOS Plugin**: [plugin-undesirables](https://gitlab.com/meme-merchants/plugin-undesirables)
+- **ElizaOS Plugin**: [plugin-undesirables](https://github.com/sailorpepe/plugin-undesirables)
+- **x402 Payment Server**: [undesirables-x402-server](https://github.com/sailorpepe/undesirables-x402-server)
+- **Glama MCP Registry**: [glama.ai/mcp/servers/sailorpepe](https://glama.ai/mcp/servers/sailorpepe/undesirables-mcp-server)
 
 ---
 
