@@ -125,8 +125,8 @@ def export_game_stats(conn, output_dir: Path) -> int:
 def write_metadata(output_dir: Path, total_products: int, total_history: int):
     """Write/update Kaggle dataset-metadata.json."""
     meta = {
-        "title": "TCG Price History & Market Data (Daily Updated)",
-        "id": "sailorpepe/tcg-price-history",
+        "title": "TCG Market Intelligence 370K+ Products",
+        "id": "sailorpepe/tcg-market-intelligence",
         "licenses": [{"name": "CC0-1.0"}],
         "description": (
             f"Daily TCG market prices for {total_products:,} products across 13 games "
