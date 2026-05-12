@@ -34,21 +34,10 @@ DAYS_TO_FETCH = args.backfill if args.backfill else 7
 POLITE_DELAY = 3            # Seconds between downloads (respect TCGCSV)
 SAFETY_MIN_DAYS = max(1, DAYS_TO_FETCH // 3)  # Scale with fetch window
 
-TARGET_CATEGORIES = [
-    1,   # Magic: The Gathering
-    2,   # Yu-Gi-Oh!
-    3,   # Pokémon
-    62,  # Flesh & Blood
-    63,  # Digimon
-    68,  # One Piece
-    71,  # Lorcana
-    79,  # Star Wars Unlimited
-    80,  # Dragon Ball Fusion World
-    81,  # Union Arena
-    85,  # Pokémon (Japan)
-    86,  # Gundam
-    89,  # LoL Riftbound
-]
+# Extract ALL categories from TCGCSV — no filtering.
+# Previously we only extracted 13 categories (~255K products).
+# The full archive contains 84+ categories with 412K+ products.
+TARGET_CATEGORIES = None  # None = extract all
 
 ARCHIVE_URL = "https://tcgcsv.com/archive/tcgplayer/prices-{date}.ppmd.7z"
 
@@ -78,11 +67,19 @@ def download_file(url: str, dest: Path) -> bool:
         return False
 
 
-def extract_categories(archive: Path, output_dir: Path, categories: list[int]):
-    """Extract only the target category folders from the 7z archive."""
-    wildcards = [f"*/{cat_id}/*" for cat_id in categories]
-    cmd = ["7za", "x", str(archive), f"-o{output_dir}", "-y"] + wildcards
-    logger.info(f"  Extracting categories {categories}...")
+def extract_categories(archive: Path, output_dir: Path, categories=None):
+    """Extract category folders from the 7z archive.
+    
+    If categories is None, extracts everything.
+    Otherwise, extracts only the specified category IDs.
+    """
+    if categories:
+        wildcards = [f"*/{cat_id}/*" for cat_id in categories]
+        cmd = ["7za", "x", str(archive), f"-o{output_dir}", "-y"] + wildcards
+        logger.info(f"  Extracting categories {categories}...")
+    else:
+        cmd = ["7za", "x", str(archive), f"-o{output_dir}", "-y"]
+        logger.info(f"  Extracting ALL categories...")
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         if result.returncode != 0:
