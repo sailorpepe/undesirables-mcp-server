@@ -17,6 +17,8 @@ import json
 import sqlite3
 import logging
 import argparse
+import urllib.request
+import time
 from pathlib import Path
 from datetime import datetime
 
@@ -179,6 +181,120 @@ def import_price_history(conn):
     return total_rows
 
 
+def populate_cards_from_prices(conn):
+    """Discover all product IDs from price files and populate the cards table.
+    
+    Walks tmp_history/ to extract product_id → category_id mappings from
+    the directory structure (date/category_id/group_id/prices).
+    Then fetches product names from the TCGCSV API for any missing entries.
+    """
+    if not HISTORY_DIR.exists():
+        logger.warning("History directory not found, skipping cards population")
+        return 0
+
+    # Step 1: Discover all product_id → category_id mappings from price files
+    logger.info("Scanning price files for product IDs...")
+    product_categories = {}  # {product_id: category_id}
+    groups_by_category = {}  # {category_id: set(group_id)}
+
+    for prices_file in HISTORY_DIR.rglob("prices"):
+        parts = prices_file.relative_to(HISTORY_DIR).parts
+        if len(parts) < 4:  # date/cat/group/prices
+            continue
+        try:
+            cat_id = int(parts[1])
+            group_id = int(parts[2])
+        except ValueError:
+            continue
+
+        groups_by_category.setdefault(cat_id, set()).add(group_id)
+
+        try:
+            content = prices_file.read_text(encoding="utf-8", errors="ignore")
+            if content.strip().startswith(("[", "{")):
+                data = json.loads(content)
+                records = data if isinstance(data, list) else data.get("results", [])
+            else:
+                continue
+
+            for row in records:
+                pid = int(row.get("productId", 0))
+                if pid > 0:
+                    product_categories[pid] = cat_id
+        except Exception:
+            continue
+
+    logger.info(f"  Found {len(product_categories):,} unique product IDs across {len(groups_by_category)} categories")
+
+    # Step 2: Find products missing from the cards table
+    existing = {r[0] for r in conn.execute("SELECT product_id FROM cards").fetchall()}
+    missing_pids = set(product_categories.keys()) - existing
+    logger.info(f"  Already in cards: {len(existing):,}, missing: {len(missing_pids):,}")
+
+    if not missing_pids:
+        logger.info("  Cards table is up to date")
+        return 0
+
+    # Step 3: Insert missing products — first with just product_id + category_id,
+    # then try to fetch names from TCGCSV API
+    missing_by_cat = {}  # {category_id: {group_id: [product_ids]}}
+    for pid in missing_pids:
+        cat_id = product_categories[pid]
+        missing_by_cat.setdefault(cat_id, set()).add(pid)
+
+    # Fetch product names from TCGCSV API group-by-group
+    named_count = 0
+    unnamed_rows = []
+
+    for cat_id, groups in sorted(groups_by_category.items()):
+        cat_missing = missing_by_cat.get(cat_id, set())
+        if not cat_missing:
+            continue
+
+        for group_id in sorted(groups):
+            url = f"https://tcgcsv.com/tcgplayer/{cat_id}/{group_id}/products"
+            try:
+                req = urllib.request.Request(url, headers={
+                    "User-Agent": "Mozilla/5.0 TCGOracle/2.0",
+                    "Accept": "application/json",
+                })
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    data = json.loads(resp.read())
+
+                products = data if isinstance(data, list) else data.get("results", [])
+                for p in products:
+                    pid = int(p.get("productId", 0))
+                    if pid in cat_missing:
+                        name = p.get("name", "")
+                        clean = p.get("cleanName", name)
+                        conn.execute(
+                            "INSERT OR IGNORE INTO cards (product_id, name, clean_name, category_id) VALUES (?, ?, ?, ?)",
+                            (pid, name, clean, cat_id)
+                        )
+                        named_count += 1
+                        cat_missing.discard(pid)
+
+                time.sleep(0.3)  # Rate limit
+            except Exception as e:
+                # API may not have this group — insert without names
+                pass
+
+        # Any remaining missing products — insert with just ID + category
+        for pid in cat_missing:
+            unnamed_rows.append((pid, f"Product #{pid}", f"Product #{pid}", cat_id))
+
+    if unnamed_rows:
+        conn.executemany(
+            "INSERT OR IGNORE INTO cards (product_id, name, clean_name, category_id) VALUES (?, ?, ?, ?)",
+            unnamed_rows
+        )
+
+    conn.commit()
+    total_new = named_count + len(unnamed_rows)
+    logger.info(f"✅ cards table updated: +{total_new:,} new ({named_count:,} named, {len(unnamed_rows):,} unnamed)")
+    return total_new
+
+
 def main():
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -188,19 +304,23 @@ def main():
 
     stats_count = import_shroomy_stats(conn)
     history_count = import_price_history(conn)
+    cards_count = populate_cards_from_prices(conn)
 
     # Verify
     cursor = conn.execute("SELECT MAX(date) FROM price_history")
     new_max = cursor.fetchone()[0]
     cursor = conn.execute("SELECT COUNT(*) FROM shroomy_stats")
     stats_total = cursor.fetchone()[0]
+    cursor = conn.execute("SELECT COUNT(*) FROM cards")
+    cards_total = cursor.fetchone()[0]
 
     conn.close()
 
     logger.info(f"── Summary ──")
+    logger.info(f"  cards: {cards_total:,} total (+{cards_count:,} new)")
     logger.info(f"  shroomy_stats: {stats_total:,} total products")
     logger.info(f"  price_history max date: {new_max}")
-    logger.info(f"  New rows imported: {history_count:,}")
+    logger.info(f"  New price rows imported: {history_count:,}")
     logger.info(f"Pipeline complete.")
 
 
