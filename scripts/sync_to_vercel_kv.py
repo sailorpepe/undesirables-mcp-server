@@ -1,221 +1,260 @@
 #!/usr/bin/env python3
 """
-TCG Oracle → Vercel KV Sync
+Sync SQLite data → Vercel KV (Upstash Redis)
 
-Reads from local market_memory.sqlite and pushes price history + stats
-to Vercel KV so the /api/v1/history endpoint can serve it.
+Reads shroomy_stats and cards from market_memory.sqlite
+and pushes to Upstash KV via the REST pipeline API.
 
-Run after tcg_cron.py + import_to_sqlite.py on the Mac Mini:
-  python3 scripts/sync_to_vercel_kv.py
+Uses large pipeline batches (500 cmds/call) to minimize API request count.
+Upstash free tier = 500K commands/month. Each pipeline call = 1 command.
+With 190K stats + 3K name prefixes, total API calls ≈ 400.
 
-Requires:
-  pip install requests
-  
-Environment:
-  KV_REST_API_URL   — Vercel KV REST endpoint (from Vercel dashboard)
-  KV_REST_API_TOKEN — Vercel KV REST token
+Key schema:
+  tcg:stats:{product_id} → {lastPrice, drift, volatility}
+  tcg:names:{prefix}     → [{id, n, c}, ...]  (3-char prefix name index)
+  tcg:meta                → {updated, productCount, cardsCount, dateRange}
+
+Env vars (checks both naming conventions):
+  KV_REST_API_URL / UPSTASH_REDIS_REST_URL
+  KV_REST_API_TOKEN / UPSTASH_REDIS_REST_TOKEN
 """
 
 import os
 import sys
 import json
 import sqlite3
-import logging
 import time
+import logging
 from pathlib import Path
+from datetime import datetime, timezone
+from collections import defaultdict
 
 try:
     import requests
 except ImportError:
-    print("ERROR: pip install requests")
+    print("❌ requests not installed. Run: pip3 install requests")
     sys.exit(1)
 
 logging.basicConfig(level=logging.INFO, format="[KV Sync] %(message)s")
 logger = logging.getLogger(__name__)
 
+# ── Config ──────────────────────────────────────────────────
 WORK_DIR = Path(os.environ.get("CI_PROJECT_DIR", Path(__file__).parent.parent))
 DB_PATH = WORK_DIR / ".cache" / "market_memory.sqlite"
 
-# Vercel KV REST API credentials
-KV_URL = os.environ.get("KV_REST_API_URL", "")
-KV_TOKEN = os.environ.get("KV_REST_API_TOKEN", "")
+# Support both env var naming conventions
+KV_URL = os.environ.get("KV_REST_API_URL") or os.environ.get("UPSTASH_REDIS_REST_URL")
+KV_TOKEN = os.environ.get("KV_REST_API_TOKEN") or os.environ.get("UPSTASH_REDIS_REST_TOKEN")
 
-# Batch size for KV pipeline operations
-BATCH_SIZE = 50
-
-# Only sync products with meaningful history (>= 3 data points)
-MIN_HISTORY_POINTS = 3
+BATCH_SIZE = 500       # 500 commands per pipeline = 1 API call (saves monthly quota)
+KEY_TTL = 60 * 60 * 24 * 10  # 10 days TTL — refreshed by daily cron
 
 
-def kv_pipeline(commands: list) -> bool:
-    """Execute a batch of KV commands via the REST pipeline endpoint."""
-    if not KV_URL or not KV_TOKEN:
-        logger.error("KV_REST_API_URL and KV_REST_API_TOKEN must be set")
-        return False
-    
-    url = f"{KV_URL}/pipeline"
-    headers = {
-        "Authorization": f"Bearer {KV_TOKEN}",
-        "Content-Type": "application/json",
-    }
-    
-    try:
-        resp = requests.post(url, json=commands, headers=headers, timeout=30)
-        if resp.status_code != 200:
-            logger.warning(f"KV pipeline error: {resp.status_code} — {resp.text[:200]}")
-            return False
-        return True
-    except Exception as e:
-        logger.warning(f"KV request failed: {e}")
-        return False
+def pipeline(commands: list[list]) -> list:
+    """Execute a pipeline batch. Counts as 1 command toward monthly limit."""
+    resp = requests.post(
+        f"{KV_URL}/pipeline",
+        headers={"Authorization": f"Bearer {KV_TOKEN}", "Content-Type": "application/json"},
+        json=commands,
+        timeout=60,
+    )
+    if resp.status_code != 200:
+        logger.error(f"Pipeline error {resp.status_code}: {resp.text[:300]}")
+        resp.raise_for_status()
+    results = resp.json()
+    errors = [r for r in results if isinstance(r, dict) and "error" in r]
+    if errors:
+        logger.warning(f"  Redis errors ({len(errors)}): {errors[0]}")
+    return results
 
 
-def sync_stats(conn):
-    """Push shroomy_stats to KV as individual keys."""
-    cursor = conn.execute("""
-        SELECT product_id, last_price, drift, volatility
-        FROM shroomy_stats
-        WHERE last_price > 0
-        ORDER BY last_price DESC
-    """)
-    
-    rows = cursor.fetchall()
-    logger.info(f"Syncing {len(rows):,} product stats to KV...")
-    
+def sync_stats(conn) -> int:
+    """Push shroomy_stats to KV."""
+    rows = conn.execute(
+        "SELECT product_id, last_price, drift, volatility FROM shroomy_stats WHERE last_price > 0"
+    ).fetchall()
+    logger.info(f"Syncing {len(rows):,} stats entries...")
+
     commands = []
     synced = 0
-    
-    for pid, last_price, drift, volatility in rows:
+    api_calls = 0
+
+    for pid, price, drift, vol in rows:
         value = json.dumps({
-            "lastPrice": last_price,
-            "drift": drift,
-            "volatility": volatility,
+            "lastPrice": round(price, 4),
+            "drift": round(drift, 8),
+            "volatility": round(vol, 8),
         })
-        # SET key value EX 86400 (expire in 24h to auto-cleanup stale data)
-        commands.append(["SET", f"tcg:stats:{pid}", value, "EX", 86400])
-        
+        commands.append(["SET", f"tcg:stats:{pid}", value, "EX", str(KEY_TTL)])
+
         if len(commands) >= BATCH_SIZE:
-            if kv_pipeline(commands):
-                synced += len(commands)
-            commands = []
-            time.sleep(0.1)  # Rate limit
-    
-    # Flush remaining
-    if commands:
-        if kv_pipeline(commands):
+            pipeline(commands)
             synced += len(commands)
-    
-    logger.info(f"✅ Synced {synced:,} stats to KV")
+            api_calls += 1
+            commands = []
+            if synced % 50000 < BATCH_SIZE:
+                logger.info(f"  Stats: {synced:,}/{len(rows):,} ({api_calls} API calls)")
+
+    if commands:
+        pipeline(commands)
+        synced += len(commands)
+        api_calls += 1
+
+    logger.info(f"✅ Stats: {synced:,} keys in {api_calls} API calls")
     return synced
 
 
-def sync_history(conn):
-    """Push price_history time series to KV."""
-    # Find products with sufficient history
-    cursor = conn.execute("""
-        SELECT product_id, COUNT(*) as cnt
-        FROM price_history
-        GROUP BY product_id
-        HAVING cnt >= ?
-        ORDER BY cnt DESC
-    """, (MIN_HISTORY_POINTS,))
-    
-    product_ids = cursor.fetchall()
-    logger.info(f"Found {len(product_ids):,} products with {MIN_HISTORY_POINTS}+ history points")
-    
+def sync_names(conn) -> int:
+    """Push card name index as 3-char prefix keys."""
+    cards = conn.execute(
+        "SELECT product_id, name, clean_name, category_id FROM cards WHERE name != ''"
+    ).fetchall()
+
+    prefix_map = defaultdict(list)
+    for pid, name, clean_name, cat_id in cards:
+        if not name:
+            continue
+        key = (clean_name or name)[:3].lower().strip()
+        if len(key) < 2:
+            continue
+        prefix_map[key].append({"id": pid, "n": name, "c": cat_id})
+
+    logger.info(f"Syncing {len(prefix_map):,} name prefixes (covering {len(cards):,} cards)...")
+
     commands = []
     synced = 0
-    
-    for pid, count in product_ids:
-        # Get the full time series for this product
-        hist_cursor = conn.execute("""
-            SELECT date, market_price, low_price, high_price
-            FROM price_history
-            WHERE product_id = ?
-            ORDER BY date ASC
-        """, (pid,))
-        
-        history = [
-            {"date": row[0], "price": row[1], "low": row[2], "high": row[3]}
-            for row in hist_cursor.fetchall()
-        ]
-        
-        value = json.dumps(history)
-        commands.append(["SET", f"tcg:history:{pid}", value, "EX", 86400])
-        
+    api_calls = 0
+
+    for prefix, entries in prefix_map.items():
+        commands.append(["SET", f"tcg:names:{prefix}", json.dumps(entries), "EX", str(KEY_TTL)])
         if len(commands) >= BATCH_SIZE:
-            if kv_pipeline(commands):
-                synced += len(commands)
-            commands = []
-            time.sleep(0.1)
-    
-    if commands:
-        if kv_pipeline(commands):
+            pipeline(commands)
             synced += len(commands)
-    
-    logger.info(f"✅ Synced {synced:,} product histories to KV")
+            api_calls += 1
+            commands = []
+
+    if commands:
+        pipeline(commands)
+        synced += len(commands)
+        api_calls += 1
+
+    logger.info(f"✅ Names: {synced:,} prefix keys in {api_calls} API calls")
     return synced
 
 
-def sync_catalog_index(conn):
-    """Push a name → product_id search index to KV."""
-    # Get top products by price (most likely to be searched)
-    cursor = conn.execute("""
-        SELECT s.product_id, c.name, c.clean_name, c.category_id
-        FROM shroomy_stats s
-        LEFT JOIN cards c ON s.product_id = c.product_id
-        WHERE s.last_price > 1.0
-        ORDER BY s.last_price DESC
-        LIMIT 10000
-    """)
-    
-    index = {}
-    for pid, name, clean_name, cat_id in cursor.fetchall():
-        display_name = clean_name or name or f"Product #{pid}"
-        index[display_name] = {
-            "product_id": pid,
-            "category_id": cat_id,
-        }
-    
-    if index:
-        value = json.dumps(index)
-        commands = [["SET", "tcg:name_index", value, "EX", 86400]]
-        if kv_pipeline(commands):
-            logger.info(f"✅ Synced name index with {len(index):,} entries")
-    
-    # Set last sync timestamp
-    from datetime import datetime
-    kv_pipeline([["SET", "tcg:last_sync", datetime.now().isoformat()]])
+def sync_history(conn, max_products=50000) -> int:
+    """Push daily price time-series for top products to KV.
+
+    Filters to products with market_price > $0.50 and 3+ data points.
+    Uses pipeline batching (500/call) to minimize API request count.
+    50K products / 500 per batch = ~100 API calls.
+    """
+    # Get top products by value that have meaningful history
+    products = conn.execute("""
+        SELECT product_id, COUNT(*) as days, MAX(market_price) as max_price
+        FROM price_history
+        WHERE market_price > 0.50
+        GROUP BY product_id
+        HAVING days >= 3
+        ORDER BY max_price DESC
+        LIMIT ?
+    """, (max_products,)).fetchall()
+    logger.info(f"Syncing history for {len(products):,} products (price>$0.50, 3+ days)...")
+
+    # Pre-fetch all history for these products in one query (much faster)
+    product_ids = [str(p[0]) for p in products]
+    product_set = set(int(pid) for pid in product_ids)
+
+    # Build history dict: {product_id: [{date, price}, ...]}
+    history_map = defaultdict(list)
+    cursor = conn.execute(
+        f"SELECT product_id, date, market_price FROM price_history "
+        f"WHERE product_id IN ({','.join('?' * len(product_ids))}) AND market_price > 0 "
+        f"ORDER BY product_id, date",
+        product_ids
+    )
+    for pid, date_str, price in cursor:
+        history_map[pid].append({"date": date_str, "price": round(price, 2)})
+
+    # Pipeline batch the SET commands
+    HISTORY_TTL = str(60 * 60 * 48)  # 48h TTL
+    commands = []
+    synced = 0
+    api_calls = 0
+
+    for pid in product_set:
+        entries = history_map.get(pid)
+        if not entries:
+            continue
+        commands.append(["SET", f"tcg:history:{pid}", json.dumps(entries), "EX", HISTORY_TTL])
+
+        if len(commands) >= BATCH_SIZE:
+            pipeline(commands)
+            synced += len(commands)
+            api_calls += 1
+            commands = []
+            if synced % 10000 < BATCH_SIZE:
+                logger.info(f"  History: {synced:,}/{len(products):,} ({api_calls} API calls)")
+
+    if commands:
+        pipeline(commands)
+        synced += len(commands)
+        api_calls += 1
+
+    logger.info(f"✅ History: {synced:,} product keys in {api_calls} API calls")
+    return synced
 
 
 def main():
     if not KV_URL or not KV_TOKEN:
-        logger.error("Missing environment variables:")
-        logger.error("  KV_REST_API_URL  — from Vercel dashboard → Storage → KV → .env.local")
-        logger.error("  KV_REST_API_TOKEN — from the same location")
-        logger.error("")
-        logger.error("Export them before running:")
-        logger.error("  export KV_REST_API_URL='https://your-kv.kv.vercel-storage.com'")
-        logger.error("  export KV_REST_API_TOKEN='your-token-here'")
+        logger.error("❌ Set KV_REST_API_URL or UPSTASH_REDIS_REST_URL environment variable")
+        logger.error("   and KV_REST_API_TOKEN or UPSTASH_REDIS_REST_TOKEN")
         sys.exit(1)
-    
+
     if not DB_PATH.exists():
-        logger.error(f"Database not found: {DB_PATH}")
-        logger.error("Run tcg_cron.py + import_to_sqlite.py first")
+        logger.error(f"❌ Database not found: {DB_PATH}")
         sys.exit(1)
-    
+
     logger.info(f"Opening database: {DB_PATH}")
+    logger.info(f"Target KV: {KV_URL}")
     conn = sqlite3.connect(str(DB_PATH))
-    
-    stats_synced = sync_stats(conn)
-    history_synced = sync_history(conn)
-    sync_catalog_index(conn)
-    
+
+    # Verify data
+    stats_count = conn.execute("SELECT COUNT(*) FROM shroomy_stats").fetchone()[0]
+    cards_count = conn.execute("SELECT COUNT(*) FROM cards").fetchone()[0]
+    date_range = conn.execute("SELECT MIN(date), MAX(date) FROM price_history").fetchone()
+    logger.info(f"Database: {stats_count:,} stats, {cards_count:,} cards, dates {date_range[0]}→{date_range[1]}")
+
+    if stats_count == 0:
+        logger.error("❌ No stats data. Run import_to_sqlite.py first.")
+        sys.exit(1)
+
+    # Sync
+    t0 = time.time()
+    synced_stats = sync_stats(conn)
+    synced_names = sync_names(conn)
+    synced_history = sync_history(conn)
+
+    # Meta
+    meta = json.dumps({
+        "updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "productCount": stats_count,
+        "cardsCount": cards_count,
+        "historyProducts": synced_history,
+        "dateRange": {"min": date_range[0] or "", "max": date_range[1] or ""},
+        "source": "market_memory.sqlite",
+    })
+    pipeline([["SET", "tcg:meta", meta, "EX", str(KEY_TTL)]])
+
+    elapsed = time.time() - t0
     conn.close()
-    
-    logger.info(f"── Sync Complete ──")
-    logger.info(f"  Stats synced:   {stats_synced:,}")
-    logger.info(f"  History synced: {history_synced:,}")
+
+    logger.info(f"── Sync Complete ({elapsed:.0f}s) ──")
+    logger.info(f"  Stats: {synced_stats:,}")
+    logger.info(f"  Names: {synced_names:,}")
+    logger.info(f"  History: {synced_history:,}")
+    logger.info(f"  Date range: {date_range[0]} → {date_range[1]}")
+    logger.info(f"✅ All data live on Vercel KV")
 
 
 if __name__ == "__main__":
