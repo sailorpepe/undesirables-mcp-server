@@ -1244,7 +1244,39 @@ def grade_tcg_card(card_image_paths: str, card_name: str = "Unknown Card") -> st
                     )
                     logger.info(f"[TCG] BGS cap applied: avg {cap_details['mathematical_average']:.1f} → {capped_grade}")
                 
-                return json.dumps({"status": "success", "report": report})
+                # === UNDSR SLAB GENERATION ===
+                slab_base64 = None
+                slab_path = None
+                try:
+                    from undsr_slab_renderer import render_slab_from_grade_result
+                    # Use the first local image path for the slab card photo
+                    first_local = None
+                    for rp in paths:
+                        if not rp.startswith("http"):
+                            first_local = os.path.expanduser(rp)
+                            break
+                    
+                    if first_local and os.path.exists(first_local):
+                        grade_output = {"report": report}
+                        slab_path = render_slab_from_grade_result(first_local, grade_output)
+                        
+                        if slab_path and os.path.exists(slab_path):
+                            with open(slab_path, "rb") as sf:
+                                slab_base64 = base64.b64encode(sf.read()).decode("utf-8")
+                            logger.info(f"[TCG] UNDSR slab rendered: {slab_path}")
+                    else:
+                        logger.info("[TCG] No local image path for slab render (URL-only grading)")
+                except ImportError:
+                    logger.warning("[TCG] undsr_slab_renderer not found — skipping slab generation")
+                except Exception as slab_err:
+                    logger.warning(f"[TCG] Slab render failed (non-fatal): {slab_err}")
+                
+                result_payload = {"status": "success", "report": report}
+                if slab_base64:
+                    result_payload["slab_image_base64"] = slab_base64
+                    result_payload["slab_image_path"] = slab_path
+                
+                return json.dumps(result_payload)
             except json.JSONDecodeError:
                 pass
                 
