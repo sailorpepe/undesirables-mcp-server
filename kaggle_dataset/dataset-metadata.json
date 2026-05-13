@@ -1,0 +1,34 @@
+{
+  "title": "TCG Market Intelligence 370K+ Products",
+  "id": "sailorpepe/tcg-market-intelligence",
+  "licenses": [
+    {
+      "name": "CC0-1.0"
+    }
+  ],
+  "description": "Daily TCG market prices for 427,611 products across 13 games including Pokemon, Magic: The Gathering, Yu-Gi-Oh!, Star Wars Unlimited, and more. Contains 6,285,578 daily price observations with market/low/mid/high prices, plus drift and volatility statistics. Updated daily from TCGCSV archives.",
+  "keywords": [
+    "tcg",
+    "trading-cards",
+    "pokemon",
+    "magic-the-gathering",
+    "yu-gi-oh",
+    "market-prices",
+    "time-series",
+    "finance"
+  ],
+  "resources": [
+    {
+      "path": "tcg_market_data.csv",
+      "description": "All 427,611 products with latest prices and volatility stats"
+    },
+    {
+      "path": "tcg_price_history.csv",
+      "description": "Daily price time series (6,285,578 rows)"
+    },
+    {
+      "path": "tcg_game_stats.csv",
+      "description": "Per-game summary statistics"
+    }
+  ]
+}

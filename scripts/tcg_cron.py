@@ -4,11 +4,6 @@ TCGCSV Daily Snapshot Pipeline — GitLab CI Cron Job
 Downloads yesterday's price archive from TCGCSV, extracts target categories,
 and computes rolling drift/volatility stats per card.
 
-Usage:
-  python3 tcg_cron.py                   # Default: last 7 days
-  python3 tcg_cron.py --backfill 365    # Backfill 1 year of history
-  python3 tcg_cron.py --force-reimport  # Re-download even cached archives
-
 Ported from Shroomy Simulator (download-tcg-history.ts + import-tcg-csv.ts)
 """
 
@@ -19,42 +14,30 @@ import math
 import time
 import logging
 import sqlite3
+import argparse
 import subprocess
 import urllib.request
-import argparse
 from pathlib import Path
 from datetime import datetime, timedelta
 
 logging.basicConfig(level=logging.INFO, format="[TCG Cron] %(message)s")
 logger = logging.getLogger(__name__)
 
-# ── CLI Arguments ───────────────────────────────────────────
+# ── CLI ─────────────────────────────────────────────────────
 parser = argparse.ArgumentParser(description="TCGCSV Daily Snapshot Pipeline")
-parser.add_argument("--backfill", type=int, default=7, help="Number of days to fetch (default: 7, max: 400)")
-parser.add_argument("--force-reimport", action="store_true", help="Re-download even if archive is cached")
+parser.add_argument("--backfill", type=int, default=None,
+                    help="Override days to fetch (e.g., --backfill 30 for a 30-day backfill)")
 args = parser.parse_args()
 
 # ── Config ──────────────────────────────────────────────────
-DAYS_TO_FETCH = min(args.backfill, 400)  # Cap at 400 days max
-FORCE_REIMPORT = args.force_reimport
+DAYS_TO_FETCH = args.backfill if args.backfill else 7
 POLITE_DELAY = 3            # Seconds between downloads (respect TCGCSV)
-SAFETY_MIN_DAYS = 1         # Abort if fewer than this many days succeed
+SAFETY_MIN_DAYS = max(1, DAYS_TO_FETCH // 3)  # Scale with fetch window
 
-TARGET_CATEGORIES = [
-    1,   # Magic: The Gathering
-    2,   # Yu-Gi-Oh!
-    3,   # Pokémon
-    62,  # Flesh & Blood
-    63,  # Digimon
-    68,  # One Piece
-    71,  # Lorcana
-    79,  # Star Wars Unlimited
-    80,  # Dragon Ball Fusion World
-    81,  # Union Arena
-    85,  # Pokémon (Japan)
-    86,  # Gundam
-    89,  # LoL Riftbound
-]
+# Extract ALL categories from TCGCSV — no filtering.
+# Previously we only extracted 13 categories (~255K products).
+# The full archive contains 84+ categories with 412K+ products.
+TARGET_CATEGORIES = None  # None = extract all
 
 ARCHIVE_URL = "https://tcgcsv.com/archive/tcgplayer/prices-{date}.ppmd.7z"
 
@@ -84,11 +67,19 @@ def download_file(url: str, dest: Path) -> bool:
         return False
 
 
-def extract_categories(archive: Path, output_dir: Path, categories: list[int]):
-    """Extract only the target category folders from the 7z archive."""
-    wildcards = [f"*/{cat_id}/*" for cat_id in categories]
-    cmd = ["7za", "x", str(archive), f"-o{output_dir}", "-y"] + wildcards
-    logger.info(f"  Extracting categories {categories}...")
+def extract_categories(archive: Path, output_dir: Path, categories=None):
+    """Extract category folders from the 7z archive.
+    
+    If categories is None, extracts everything.
+    Otherwise, extracts only the specified category IDs.
+    """
+    if categories:
+        wildcards = [f"*/{cat_id}/*" for cat_id in categories]
+        cmd = ["7za", "x", str(archive), f"-o{output_dir}", "-y"] + wildcards
+        logger.info(f"  Extracting categories {categories}...")
+    else:
+        cmd = ["7za", "x", str(archive), f"-o{output_dir}", "-y"]
+        logger.info(f"  Extracting ALL categories...")
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         if result.returncode != 0:
@@ -258,7 +249,7 @@ def main():
         logger.info(f"[{i}/{DAYS_TO_FETCH}] Processing {date_str}...")
 
         # Download if not cached
-        if not archive_path.exists() or FORCE_REIMPORT:
+        if not archive_path.exists():
             if i > 1:
                 time.sleep(POLITE_DELAY)
             if not download_file(url, archive_path):
