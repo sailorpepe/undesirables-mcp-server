@@ -43,7 +43,7 @@ mcp = FastMCP(
     "TCG Oracle",
     instructions=(
         "Financial intelligence API for the $50B+ trading card market. "
-        "Search 370K+ products across 25 games, grade card images with AI, "
+        "Search 427K+ products across 13 games, grade card images with AI, "
         "forecast prices with Monte Carlo simulation, and get ROI verdicts "
         "on whether to send cards for professional grading. "
         "All data comes from TCGCSV daily market snapshots and real-time analysis."
@@ -81,7 +81,7 @@ def search_tcg_products(
     limit: int = 10,
 ) -> dict:
     """
-    Search 370,158 TCG products across 25 card games.
+    Search 427K+ TCG products across 13 card games.
     Returns card names, sets, and current market prices.
     FREE — no payment required.
 
@@ -101,7 +101,7 @@ def search_tcg_products(
 def market_snapshot(game: str = "") -> dict:
     """
     Daily TCG market snapshot with top movers, biggest gainers/losers,
-    and volume leaders across all 25 supported card games.
+    and volume leaders across all 13 supported card games.
     FREE — no payment required.
 
     Use this when: a user asks "what's trending in the card market?" or
@@ -212,7 +212,7 @@ def trending_cards(
 ) -> dict:
     """
     Top trading cards by 30-day sales volume and price velocity.
-    Covers all 25 supported TCG games.
+    Covers all 13 supported TCG games.
 
     PAID: $0.025 USDC per call.
 
