@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- UNDSR MCP Server — Auto-Restart Daemon
+         Install: cp com.mememerchants.mcp-server.plist ~/Library/LaunchAgents/
+         Load:    launchctl load ~/Library/LaunchAgents/com.mememerchants.mcp-server.plist
+         Unload:  launchctl unload ~/Library/LaunchAgents/com.mememerchants.mcp-server.plist
+         Logs:    tail -f /tmp/mcp-server-stdout.log
+    -->
+    <key>Label</key>
+    <string>com.mememerchants.mcp-server</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>python3</string>
+        <string>-m</string>
+        <string>undesirables_mcp_server</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/davidluna/Documents/Meme Merchants/undesirables-mcp-server</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+    </dict>
+
+    <!-- Auto-restart on crash (max 3 retries per 60 seconds) -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>20</integer>
+
+    <!-- Start on login -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Logging -->
+    <key>StandardOutPath</key>
+    <string>/tmp/mcp-server-stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/mcp-server-stderr.log</string>
+
+    <!-- Resource limits -->
+    <key>SoftResourceLimits</key>
+    <dict>
+        <key>NumberOfFiles</key>
+        <integer>4096</integer>
+    </dict>
+</dict>
+</plist>
