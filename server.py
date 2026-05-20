@@ -912,27 +912,59 @@ def grade_tcg_card(card_image_paths: str, card_name: str = "Unknown Card") -> st
         # Detect if the path is actually an eBay (or internet) remote image URL
         if raw_p.startswith("http://") or raw_p.startswith("https://"):
             try:
-                # Browser-like headers to bypass CDN bot protection (TCGPlayer, eBay, etc.)
+                # Browser-like headers to bypass CDN bot protection (eBay, pokemon.com, etc.)
                 _img_headers = {
                     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
                     "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
                     "Accept-Language": "en-US,en;q=0.9",
                     "Referer": raw_p.split("/")[0] + "//" + raw_p.split("/")[2] + "/",
                 }
-                img_res = requests.get(raw_p, headers=_img_headers, timeout=15)
-                img_res.raise_for_status()
-                from PIL import Image
-                import io
-                img = Image.open(io.BytesIO(img_res.content)).convert("RGB")
-                buffered = io.BytesIO()
-                img.save(buffered, format="JPEG", quality=85)
-                b64_images.append(base64.b64encode(buffered.getvalue()).decode("utf-8"))
-                continue
+
+                # TCGPlayer CDN uses Cloudflare JS challenges — try alternate URL patterns
+                _urls_to_try = [raw_p]
+                if "tcgplayer" in raw_p.lower():
+                    import re
+                    # Try without size suffix: product/489027_200w.jpg → product/489027.jpg
+                    no_size = re.sub(r'_\d+w\.', '.', raw_p)
+                    if no_size != raw_p:
+                        _urls_to_try.append(no_size)
+                    # Try the product image CDN with different subdomain
+                    alt = raw_p.replace("tcgplayer-cdn.tcgplayer.com", "product-images.tcgplayer.com")
+                    if alt != raw_p:
+                        _urls_to_try.append(alt)
+
+                _downloaded = False
+                for _try_url in _urls_to_try:
+                    try:
+                        img_res = requests.get(_try_url, headers=_img_headers, timeout=15)
+                        img_res.raise_for_status()
+                        from PIL import Image
+                        import io
+                        img = Image.open(io.BytesIO(img_res.content)).convert("RGB")
+                        buffered = io.BytesIO()
+                        img.save(buffered, format="JPEG", quality=85)
+                        b64_images.append(base64.b64encode(buffered.getvalue()).decode("utf-8"))
+                        _downloaded = True
+                        break
+                    except Exception:
+                        continue
+
+                if _downloaded:
+                    continue
+
+                # All URL attempts failed
+                raise requests.exceptions.HTTPError(f"All URL patterns returned errors (Cloudflare protected)")
             except Exception as e:
                 logger.warning(f"[TCG] Failed to download remote image {raw_p}: {e}")
-                # Non-fatal: skip this image and try remaining ones instead of aborting
+                if "tcgplayer" in raw_p.lower():
+                    _err = (f"TCGPlayer CDN blocked this request (Cloudflare protection). "
+                            f"To grade a TCGPlayer card: right-click the image on tcgplayer.com, "
+                            f"select 'Copy Image Address', then paste that URL. Or save the image "
+                            f"locally and provide the file path instead.")
+                else:
+                    _err = f"Failed to download image from {raw_p}: {str(e)}. Try saving the image locally and providing the file path."
                 if len(paths) == 1:
-                    return json.dumps({"error": f"Failed to download listing image from {raw_p}: {str(e)}. Tip: Try uploading the image directly instead of using a CDN URL."})
+                    return json.dumps({"error": _err})
                 continue
 
         # Normal Local File Pipeline
