@@ -912,7 +912,14 @@ def grade_tcg_card(card_image_paths: str, card_name: str = "Unknown Card") -> st
         # Detect if the path is actually an eBay (or internet) remote image URL
         if raw_p.startswith("http://") or raw_p.startswith("https://"):
             try:
-                img_res = requests.get(raw_p, timeout=10)
+                # Browser-like headers to bypass CDN bot protection (TCGPlayer, eBay, etc.)
+                _img_headers = {
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+                    "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Referer": raw_p.split("/")[0] + "//" + raw_p.split("/")[2] + "/",
+                }
+                img_res = requests.get(raw_p, headers=_img_headers, timeout=15)
                 img_res.raise_for_status()
                 from PIL import Image
                 import io
@@ -922,7 +929,11 @@ def grade_tcg_card(card_image_paths: str, card_name: str = "Unknown Card") -> st
                 b64_images.append(base64.b64encode(buffered.getvalue()).decode("utf-8"))
                 continue
             except Exception as e:
-                return json.dumps({"error": f"Failed to download listing image from {raw_p}: {str(e)}"})
+                logger.warning(f"[TCG] Failed to download remote image {raw_p}: {e}")
+                # Non-fatal: skip this image and try remaining ones instead of aborting
+                if len(paths) == 1:
+                    return json.dumps({"error": f"Failed to download listing image from {raw_p}: {str(e)}. Tip: Try uploading the image directly instead of using a CDN URL."})
+                continue
 
         # Normal Local File Pipeline
         p = os.path.expanduser(raw_p)
