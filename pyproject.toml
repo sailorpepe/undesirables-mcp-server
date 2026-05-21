@@ -1,6 +1,6 @@
 [project]
 name = "undesirables-mcp-server"
-version = "1.1.5"
+version = "1.1.6"
 description = "Local-first AI agent MCP server — TCG card grading, Monte Carlo simulations, video production, music generation, image generation, and security scanning. Zero-trust architecture, everything runs on your machine."
 requires-python = ">=3.11"
 readme = "README.md"
