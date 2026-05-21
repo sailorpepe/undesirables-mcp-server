@@ -5,7 +5,7 @@
 
 [![Python Runtime](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![FastMCP](https://img.shields.io/badge/powered%20by-FastMCP-green.svg)](https://github.com/modelcontextprotocol/fastmcp)
-![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
+![License: BSL-1.1](https://img.shields.io/badge/License-BSL_1.1-orange.svg)
 [![PyPI](https://img.shields.io/pypi/v/undesirables-mcp-server.svg)](https://pypi.org/project/undesirables-mcp-server/)
 
 > **Turn any Undesirable NFT into an MCP-compatible AI agent with 35+ local compute tools.**
