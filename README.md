@@ -10,13 +10,15 @@
 
 > **Turn any Undesirable NFT into an MCP-compatible AI agent with 35+ local compute tools.**
 
-## What's New in v1.1.0: Agent Economy (M2M)
+## What's New in v1.1.5
 
-This release introduces the **Machine to Machine (M2M) Agent Economy** — a cryptographic purchase bridge that allows autonomous AI agents to independently acquire an Undesirables NFT soul matrix and unlock all local compute engines without human intervention.
+The latest release includes **Machine to Machine (M2M) Agent Economy**, security hardening, and full ecosystem integration.
 
-**New Tools:**
+**Key Features:**
 - `purchase_undesirables_license_key` — Returns an unsigned EVM transaction payload (Ethereum Mainnet, chainId 1) for autonomous agents to mint directly from the Scatter.art contract
-- `verify_soul_initialization` — Verifies on chain purchase via public RPC and initializes the cryptographic soul matrix, unlocking all 10 compute engines
+- `verify_soul_initialization` — Verifies on chain purchase via public RPC and initializes the cryptographic soul matrix, unlocking all local compute engines
+- Verified on [Glama.ai](https://glama.ai/mcp/servers/sailorpepe/undesirables-mcp-server) with a 3.8/5 quality score across 36 tools
+- Listed on 9+ MCP directories including the [Official MCP Registry](https://registry.modelcontextprotocol.io)
 
 **Full 35+ Tool Suite Includes:**
 - 🎴 Vision AI Card Grading (PSA/Beckett prediction via Qwen VL)
@@ -153,7 +155,7 @@ This MCP server exposes your local NFT soul via the [Model Context Protocol](htt
 - `soul://memory` — Persistent memory (trade history, observations)
 - `soul://predictions` — Prediction ledger with grades
 
-**Core Tools** (34 functions your AI can call):
+**Core Tools** (35+ functions your AI can call):
 - `grade_tcg_card` — 3-stage PSA/Beckett grading: Qwen Vision LLM + OpenCV centering + BGS capping
 - `monte_carlo_simulation` — Stochastic price modeling (Heston/Merton/Kou)
 - `search_ebay_market` — Live eBay market depth, price distributions, arbitrage detection
@@ -242,10 +244,12 @@ agent = Agent(
 )
 ```
 
-### ElizaOS
+### ElizaOS (Merged into Official Monorepo)
 ```bash
 npm install plugin-undesirables
 ```
+The plugin is now part of the [official ElizaOS monorepo](https://github.com/elizaOS/eliza/tree/develop/plugins/plugin-undesirables) (PR #7869, merged May 21 2026).
+
 Add to your `character.json`:
 ```json
 {
@@ -264,10 +268,12 @@ Add to your `character.json`:
 - **Mint**: [scatter.art/the-undesirables](https://scatter.art/the-undesirables)
 - **Docs**: [the-undesirables.com/docs](https://the-undesirables.com/docs)
 - **PyPI**: [pypi.org/project/undesirables-mcp-server](https://pypi.org/project/undesirables-mcp-server/)
+- **npm**: [plugin-undesirables](https://npmjs.com/package/plugin-undesirables) (ElizaOS plugin, v2.4.4)
+- **Oracle API**: [oracle.the-undesirables.com](https://oracle.the-undesirables.com) (x402 micropayments)
 - **mcp.so**: [Listed on mcp.so](https://mcp.so)
-- **ElizaOS Plugin**: [plugin-undesirables](https://github.com/sailorpepe/plugin-undesirables)
+- **Glama**: [Verified ✅ 3.8/5](https://glama.ai/mcp/servers/sailorpepe/undesirables-mcp-server)
+- **ElizaOS Plugin**: [Official monorepo](https://github.com/elizaOS/eliza/tree/develop/plugins/plugin-undesirables)
 - **x402 Payment Server**: [undesirables-x402-server](https://github.com/sailorpepe/undesirables-x402-server)
-- **Glama MCP Registry**: [glama.ai/mcp/servers/sailorpepe](https://glama.ai/mcp/servers/sailorpepe/undesirables-mcp-server)
 
 ---
 
