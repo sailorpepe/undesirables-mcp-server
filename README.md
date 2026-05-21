@@ -22,7 +22,7 @@ The latest release includes **Machine to Machine (M2M) Agent Economy**, security
 
 **Full 35+ Tool Suite Includes:**
 - 🎴 Vision AI Card Grading (PSA/Beckett prediction via Qwen VL)
-- 📊 Monte Carlo Price Simulation (Heston/Merton/Kou stochastic models)
+- 📊 Monte Carlo Price Simulation (Merton Jump-Diffusion with VaR/CVaR)
 - 🎵 AI Music Generation (ACE Step on Apple Silicon)
 - 🎬 Video Clipping and Beat Sync Editing (FFmpeg)
 - 🖼️ Local Image Generation (MLX Flux on Mac, DirectML on Windows, CUDA on Linux)
@@ -157,7 +157,7 @@ This MCP server exposes your local NFT soul via the [Model Context Protocol](htt
 
 **Core Tools** (35+ functions your AI can call):
 - `grade_tcg_card` — 3-stage PSA/Beckett grading: Qwen Vision LLM + OpenCV centering + BGS capping
-- `monte_carlo_simulation` — Stochastic price modeling (Heston/Merton/Kou)
+- `monte_carlo_simulation` — Stochastic price modeling (Merton Jump-Diffusion)
 - `search_ebay_market` — Live eBay market depth, price distributions, arbitrage detection
 - `purchase_undesirables_license_key` — M2M purchase bridge (EVM tx payload)
 - `verify_soul_initialization` — On chain soul verification
