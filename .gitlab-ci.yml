@@ -37,6 +37,8 @@ tcg_daily_snapshot:
     - python3 scripts/import_to_sqlite.py
     - echo "✅ SQLite import complete. Syncing to Vercel KV..."
     - python3 scripts/sync_to_vercel_kv.py || echo "⚠️ KV sync skipped (missing env vars or connection issue)"
+    - echo "📦 Exporting and pushing to Kaggle..."
+    - python3 scripts/kaggle_export.py --output /tmp/kaggle_daily --push || echo "⚠️ Kaggle push failed (check KAGGLE_USERNAME/KAGGLE_KEY)"
     - echo "✅ Pipeline complete."
 
   after_script:
