@@ -10,9 +10,9 @@
 
 > **Turn any Undesirable NFT into an MCP-compatible AI agent with 35+ local compute tools.**
 
-## What's New in v1.1.5
+## What's New in v1.1.7
 
-The latest release includes **Machine to Machine (M2M) Agent Economy**, security hardening, and full ecosystem integration.
+The latest release includes **Merton Jump-Diffusion Monte Carlo** (replacing Heston/Kou), corrected license badge, and full ecosystem integration.
 
 **Key Features:**
 - `purchase_undesirables_license_key` — Returns an unsigned EVM transaction payload (Ethereum Mainnet, chainId 1) for autonomous agents to mint directly from the Scatter.art contract
@@ -262,18 +262,44 @@ Add to your `character.json`:
 
 ---
 
+## LitVM TCG Oracle — MCP Server
+
+We also publish a dedicated on-chain oracle MCP server for the LitecoinVM ecosystem:
+
+```bash
+pip install litvm-tcg-oracle
+```
+
+| Feature | Detail |
+|---------|--------|
+| **433K+ trading cards** | 13 games, 276K actively priced |
+| **13.5M+ price observations** | 60+ days of continuous data |
+| **On-chain Merkle proofs** | Trustless verification on LiteForge (Chain 4441) |
+| **Monte Carlo simulation** | Merton Jump-Diffusion with VaR/CVaR |
+| **6 MCP tools** | `search_cards`, `get_price_history`, `verify_price`, `oracle_status`, `simulate_price`, `grade_card` |
+
+→ **GitHub**: [litvm-tcg-oracle-mcp](https://github.com/sailorpepe/litvm-tcg-oracle-mcp)  
+→ **PyPI**: [litvm-tcg-oracle](https://pypi.org/project/litvm-tcg-oracle/)  
+→ **Live Oracle**: [the-undesirables.com/litvm](https://the-undesirables.com/litvm)
+
+---
+
 ## The Undesirables Ecosystem
 
 - **Website**: [the-undesirables.com](https://the-undesirables.com)
+- **LitVM Oracle**: [the-undesirables.com/litvm](https://the-undesirables.com/litvm)
 - **Mint**: [scatter.art/the-undesirables](https://scatter.art/the-undesirables)
 - **Docs**: [the-undesirables.com/docs](https://the-undesirables.com/docs)
-- **PyPI**: [pypi.org/project/undesirables-mcp-server](https://pypi.org/project/undesirables-mcp-server/)
-- **npm**: [plugin-undesirables](https://npmjs.com/package/plugin-undesirables) (ElizaOS plugin, v2.4.4)
-- **Oracle API**: [oracle.the-undesirables.com](https://oracle.the-undesirables.com) (x402 micropayments)
-- **mcp.so**: [Listed on mcp.so](https://mcp.so)
+- **PyPI (MCP)**: [undesirables-mcp-server](https://pypi.org/project/undesirables-mcp-server/) (v1.1.7)
+- **PyPI (LitVM)**: [litvm-tcg-oracle](https://pypi.org/project/litvm-tcg-oracle/) (v1.0.3)
+- **npm**: [plugin-undesirables](https://npmjs.com/package/plugin-undesirables) (ElizaOS plugin, v2.5.0)
+- **Oracle API**: [oracle.the-undesirables.com](https://oracle.the-undesirables.com) (28 endpoints, x402 micropayments)
+- **awesome-mcp-servers**: [Listed ✅](https://github.com/punkpeye/awesome-mcp-servers) (85K+ ⭐)
 - **Glama**: [Verified ✅ 3.8/5](https://glama.ai/mcp/servers/sailorpepe/undesirables-mcp-server)
 - **ElizaOS Plugin**: [Official monorepo](https://github.com/elizaOS/eliza/tree/develop/plugins/plugin-undesirables)
 - **x402 Payment Server**: [undesirables-x402-server](https://github.com/sailorpepe/undesirables-x402-server)
+- **Kaggle Dataset**: [tcg-market-intelligence](https://www.kaggle.com/datasets/sailorpepe/tcg-market-intelligence)
+- **X**: [@undesirables_ai](https://x.com/undesirables_ai)
 
 ---
 
