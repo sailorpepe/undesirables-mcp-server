@@ -8,6 +8,14 @@
 ![License: BSL-1.1](https://img.shields.io/badge/License-BSL_1.1-orange.svg)
 [![PyPI](https://img.shields.io/pypi/v/undesirables-mcp-server.svg)](https://pypi.org/project/undesirables-mcp-server/)
 
+<div align="center">
+
+<img src="assets/demo.gif" alt="Undesirables MCP Server Demo" width="480" />
+
+*35+ local compute tools for AI agents — zero cloud dependency*
+
+</div>
+
 > **Turn any Undesirable NFT into an MCP-compatible AI agent with 35+ local compute tools.**
 
 ## What's New in v1.1.7
