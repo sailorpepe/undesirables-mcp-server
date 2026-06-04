@@ -1,24 +1,73 @@
 <!-- mcp-name: io.github.sailorpepe/undesirables-mcp-server -->
-# The Undesirables — MCP Server
+
+<div align="center">
 
 ![The Undesirables MCP Banner](./og_preview.png)
 
-[![Python Runtime](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![FastMCP](https://img.shields.io/badge/powered%20by-FastMCP-green.svg)](https://github.com/modelcontextprotocol/fastmcp)
-![License: BSL-1.1](https://img.shields.io/badge/License-BSL_1.1-orange.svg)
-[![PyPI](https://img.shields.io/pypi/v/undesirables-mcp-server.svg)](https://pypi.org/project/undesirables-mcp-server/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square)](https://www.python.org/downloads/)
+[![FastMCP](https://img.shields.io/badge/powered%20by-FastMCP-green.svg?style=flat-square)](https://github.com/modelcontextprotocol/fastmcp)
+[![License: BSL-1.1](https://img.shields.io/badge/License-BSL_1.1-orange.svg?style=flat-square)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/undesirables-mcp-server.svg?style=flat-square)](https://pypi.org/project/undesirables-mcp-server/)
+
+**35+ local compute tools for AI agents — zero cloud dependency**
+
+[Website](https://the-undesirables.com) · [Docs](https://the-undesirables.com/docs) · [PyPI](https://pypi.org/project/undesirables-mcp-server/) · [𝕏](https://x.com/undesirables_ai)
+
+</div>
 
 <div align="center">
 
 <img src="assets/demo.gif" alt="Undesirables MCP Server Demo" width="480" />
 
-*35+ local compute tools for AI agents — zero cloud dependency*
-
 </div>
+
+---
+
+## Quick Install
+
+```bash
+pip install undesirables-mcp-server
+```
 
 > **Turn any Undesirable NFT into an MCP-compatible AI agent with 35+ local compute tools.**
 
-## What's New in v1.1.7
+---
+
+## Table of Contents
+
+- [What It Does](#what-it-does)
+- [What's New in v1.1.7](#whats-new-in-v117)
+- [Prerequisites](#-prerequisites-read-carefully)
+- [Full Setup](#-step-1-install--clone)
+- [Boot The Server](#-step-2-boot-the-server)
+- [Connect Your Chat Front-End](#-step-3-connect-your-chat-front-end)
+- [Local Image Generation](#-step-4-setup-local-image-generation-optional)
+- [Troubleshooting](#%EF%B8%8F-common-idiot-proof-diagnostics)
+- [Technical Architecture](#technical-architecture-for-developers)
+- [Agent Framework Integration](#agent-framework-integration)
+- [LitVM TCG Oracle](#litvm-tcg-oracle--mcp-server)
+- [Ecosystem](#the-undesirables-ecosystem)
+- [License & Commercial Use](#-license--commercial-use)
+
+---
+
+## What It Does
+
+- 🎴 **Vision AI Card Grading** — PSA/Beckett prediction via Qwen VL
+- 📊 **Monte Carlo Price Simulation** — Merton Jump-Diffusion with VaR/CVaR
+- 🎵 **AI Music Generation** — ACE Step on Apple Silicon
+- 🎬 **Video Clipping & Beat Sync Editing** — FFmpeg
+- 🖼️ **Local Image Generation** — MLX Flux on Mac, DirectML on Windows, CUDA on Linux
+- 🗣️ **Text to Speech Voice Engine** — Kokoro TTS
+- 🧠 **Persistent RAG Memory Graphs** — CRM node mapping
+- 🔍 **Zero Token Web Search** — DuckDuckGo
+- 🔒 **SAST Code Security Auditing**
+- 📈 **Financial Analytics Oracle** — TCGCSV + eBay depth analysis
+
+---
+
+<details>
+<summary><strong>What's New in v1.1.7</strong></summary>
 
 The latest release includes **Merton Jump-Diffusion Monte Carlo** (replacing Heston/Kou), corrected license badge, and full ecosystem integration.
 
@@ -28,22 +77,7 @@ The latest release includes **Merton Jump-Diffusion Monte Carlo** (replacing Hes
 - Verified on [Glama.ai](https://glama.ai/mcp/servers/sailorpepe/undesirables-mcp-server) with a 3.8/5 quality score across 36 tools
 - Listed on 9+ MCP directories including the [Official MCP Registry](https://registry.modelcontextprotocol.io)
 
-**Full 35+ Tool Suite Includes:**
-- 🎴 Vision AI Card Grading (PSA/Beckett prediction via Qwen VL)
-- 📊 Monte Carlo Price Simulation (Merton Jump-Diffusion with VaR/CVaR)
-- 🎵 AI Music Generation (ACE Step on Apple Silicon)
-- 🎬 Video Clipping and Beat Sync Editing (FFmpeg)
-- 🖼️ Local Image Generation (MLX Flux on Mac, DirectML on Windows, CUDA on Linux)
-- 🗣️ Text to Speech Voice Engine (Kokoro TTS)
-- 🧠 Persistent RAG Memory Graphs (CRM node mapping)
-- 🔍 Zero Token Web Search (DuckDuckGo)
-- 🔒 SAST Code Security Auditing
-- 📈 Financial Analytics Oracle (TCGCSV + eBay depth analysis)
-
-### Quick Install via pip
-```bash
-pip install undesirables-mcp-server
-```
+</details>
 
 ---
 
@@ -347,3 +381,13 @@ Building a commercial product? Want guaranteed API access or white-label integra
 📧 **theundesirables7@gmail.com** · 🐦 **[@undesirables_ai](https://x.com/undesirables_ai)**
 
 © 2026 The Undesirables LLC
+
+---
+
+<div align="center">
+
+⭐ **If this project helped you, please star this repo** — it helps others find it.
+
+[Report Bug](../../issues) · [Request Feature](../../issues)
+
+</div>
