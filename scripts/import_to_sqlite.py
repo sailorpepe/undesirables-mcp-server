@@ -267,9 +267,12 @@ def populate_cards_from_prices(conn):
                     if pid in cat_missing:
                         name = p.get("name", "")
                         clean = p.get("cleanName", name)
+                        # TCGplayer rarity lives in extendedData (singles only; sealed = None)
+                        rarity = next((e.get("value") for e in p.get("extendedData", [])
+                                       if e.get("name") == "Rarity"), None)
                         conn.execute(
-                            "INSERT OR IGNORE INTO cards (product_id, name, clean_name, category_id) VALUES (?, ?, ?, ?)",
-                            (pid, name, clean, cat_id)
+                            "INSERT OR IGNORE INTO cards (product_id, name, clean_name, category_id, rarity) VALUES (?, ?, ?, ?, ?)",
+                            (pid, name, clean, cat_id, rarity)
                         )
                         named_count += 1
                         cat_missing.discard(pid)
