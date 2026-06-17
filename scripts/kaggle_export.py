@@ -45,8 +45,8 @@ def export_market_data(conn, output_dir: Path) -> int:
 
     cur.execute("""
         SELECT c.product_id, c.name, c.clean_name, c.category_id, c.rarity,
-               p.market_price, p.low_price, p.mid_price, p.high_price, p.date,
-               s.drift, s.volatility
+               p.sub_type, p.market_price, p.low_price, p.mid_price, p.high_price,
+               p.date, s.drift, s.volatility
         FROM cards c
         LEFT JOIN price_history p ON c.product_id = p.product_id
           AND p.date = (SELECT MAX(date) FROM price_history)
@@ -58,11 +58,11 @@ def export_market_data(conn, output_dir: Path) -> int:
     with open(out, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["product_id", "name", "clean_name", "category_id", "rarity",
-                     "market_price", "low_price", "mid_price", "high_price",
-                     "price_date", "drift", "volatility"])
+                     "sub_type", "market_price", "low_price", "mid_price",
+                     "high_price", "price_date", "drift", "volatility"])
         w.writerows(rows)
 
-    priced = sum(1 for r in rows if r[5] and r[5] > 0)
+    priced = sum(1 for r in rows if r[6] and r[6] > 0)
     print(f"  tcg_market_data.csv: {len(rows):,} products ({priced:,} priced)")
     return len(rows)
 
@@ -73,18 +73,18 @@ def export_price_history(conn, output_dir: Path) -> int:
     out = output_dir / "tcg_price_history.csv"
 
     cur.execute("""
-        SELECT p.product_id, c.name, c.category_id,
+        SELECT p.product_id, c.name, c.category_id, p.sub_type,
                p.date, p.market_price, p.low_price, p.mid_price, p.high_price
         FROM price_history p
         JOIN cards c ON p.product_id = c.product_id
         WHERE p.market_price > 0
-        ORDER BY p.product_id, p.date
+        ORDER BY p.product_id, p.date, p.sub_type
     """)
     rows = cur.fetchall()
 
     with open(out, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["product_id", "name", "category_id", "date",
+        w.writerow(["product_id", "name", "category_id", "sub_type", "date",
                      "market_price", "low_price", "mid_price", "high_price"])
         w.writerows(rows)
 
@@ -132,8 +132,9 @@ def write_metadata(output_dir: Path, total_products: int, total_history: int):
             f"Daily TCG market prices for {total_products:,} products across 13 games "
             f"including Pokemon, Magic: The Gathering, Yu-Gi-Oh!, Star Wars Unlimited, "
             f"and more. Contains {total_history:,} daily price observations with "
-            f"market/low/mid/high prices, card rarity, plus drift and volatility "
-            f"statistics. Updated daily from TCGCSV archives."
+            f"market/low/mid/high prices broken out by printing (Normal/Holofoil), "
+            f"card rarity, plus drift and volatility statistics. "
+            f"Updated daily from TCGCSV archives."
         ),
         "keywords": [
             "tcg", "trading-cards", "pokemon", "magic-the-gathering",
@@ -150,6 +151,7 @@ def write_metadata(output_dir: Path, total_products: int, total_history: int):
                         {"name": "clean_name", "description": "Normalized product name with punctuation and special characters stripped (e.g. 'Charizard ex 199165'). Useful for fuzzy matching and search.", "type": "string"},
                         {"name": "category_id", "description": "TCGplayer category ID identifying the game/product line (e.g. 1 = Magic: The Gathering, 2 = Yu-Gi-Oh!, 3 = Pokemon). See tcg_game_stats.csv for the full ID-to-game mapping.", "type": "integer"},
                         {"name": "rarity", "description": "Card rarity as defined by TCGplayer, specific to each game (e.g. Pokemon: Common / Uncommon / Rare / Double Rare / Illustration Rare; Magic: Common / Uncommon / Rare / Mythic). Empty for sealed products (booster boxes, packs, decks), which have no rarity.", "type": "string"},
+                        {"name": "sub_type", "description": "Printing/variant the price refers to: 'Normal', 'Holofoil', or 'Unlimited' (empty for products with a single printing). A card with multiple printings appears as multiple rows here, one per sub_type, since each prints at a different price.", "type": "string"},
                         {"name": "market_price", "description": "TCGplayer Market Price in USD on price_date — the benchmark fair-market value derived from recent sales.", "type": "number"},
                         {"name": "low_price", "description": "Lowest active listing price in USD on price_date.", "type": "number"},
                         {"name": "mid_price", "description": "Mid/median listing price in USD on price_date.", "type": "number"},
@@ -168,6 +170,7 @@ def write_metadata(output_dir: Path, total_products: int, total_history: int):
                         {"name": "product_id", "description": "TCGplayer product ID. Join key to tcg_market_data.csv.", "type": "integer"},
                         {"name": "name", "description": "Full product name as listed on TCGplayer.", "type": "string"},
                         {"name": "category_id", "description": "TCGplayer category ID identifying the game/product line. See tcg_game_stats.csv for the ID-to-game mapping.", "type": "integer"},
+                        {"name": "sub_type", "description": "Printing/variant this price refers to: 'Normal', 'Holofoil', or 'Unlimited' (empty for single-printing products). Together with product_id and date this identifies a unique price observation — a card with both Normal and Holofoil printings has two rows per date.", "type": "string"},
                         {"name": "date", "description": "Date of this price observation (YYYY-MM-DD).", "type": "string"},
                         {"name": "market_price", "description": "TCGplayer Market Price in USD on this date.", "type": "number"},
                         {"name": "low_price", "description": "Lowest active listing price in USD on this date.", "type": "number"},
