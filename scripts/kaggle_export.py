@@ -122,16 +122,25 @@ def export_game_stats(conn, output_dir: Path) -> int:
     return len(stats)
 
 
-def write_metadata(output_dir: Path, total_products: int, total_history: int):
+def write_metadata(output_dir: Path, total_products: int, total_history: int,
+                   total_categories: int = 0, total_days: int = 0):
     """Write/update Kaggle dataset-metadata.json."""
+    # Subtitle auto-updates from the real category/day counts each run.
+    # NOTE: "categories" (= COUNT(DISTINCT category_id)), not "games" — TCGplayer
+    # categories include supplies/accessories/miniatures, not only card games.
+    # Kaggle requires the subtitle to be 20-80 characters.
+    subtitle = (f"Daily prices, rarity & volatility — {total_categories} TCGplayer "
+                f"categories, {total_days}-day series")[:80]
     meta = {
         "title": "TCG Market Intelligence 370K+ Products",
         "id": "sailorpepe/tcg-market-intelligence",
+        "subtitle": subtitle,
         "licenses": [{"name": "CC0-1.0"}],
         "description": (
-            f"Daily TCG market prices for {total_products:,} products across 13 games "
-            f"including Pokemon, Magic: The Gathering, Yu-Gi-Oh!, Star Wars Unlimited, "
-            f"and more. Contains {total_history:,} daily price observations with "
+            f"Daily TCG market prices for {total_products:,} products across "
+            f"{total_categories} TCGplayer categories — including Pokemon, Magic: The "
+            f"Gathering, Yu-Gi-Oh!, Lorcana, One Piece, Star Wars Unlimited, and more. "
+            f"Contains {total_history:,} daily price observations with "
             f"market/low/mid/high prices broken out by printing (Normal/Holofoil), "
             f"card rarity, plus drift and volatility statistics. "
             f"Updated daily from TCGCSV archives."
@@ -247,8 +256,9 @@ def main():
 
     total_products = export_market_data(conn, args.output)
     total_history = export_price_history(conn, args.output)
-    export_game_stats(conn, args.output)
-    write_metadata(args.output, total_products, total_history)
+    total_categories = export_game_stats(conn, args.output)
+    write_metadata(args.output, total_products, total_history,
+                   total_categories, days)
 
     conn.close()
 
