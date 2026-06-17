@@ -49,7 +49,7 @@ def init_db(conn):
     conn.execute("""
         CREATE TABLE IF NOT EXISTS price_history (
             product_id INTEGER, market_price REAL, low_price REAL,
-            mid_price REAL, high_price REAL, date TEXT
+            mid_price REAL, high_price REAL, date TEXT, sub_type TEXT
         )
     """)
     conn.execute("""
@@ -161,7 +161,7 @@ def import_price_history(conn):
                         low = float(row.get("lowPrice", 0) or 0)
                         mid = float(row.get("midPrice", 0) or 0)
                         high = float(row.get("highPrice", 0) or 0)
-                        rows.append((pid, mp, low, mid, high, date_str))
+                        rows.append((pid, mp, low, mid, high, date_str, sub))
                     except (ValueError, TypeError):
                         continue
             except Exception as e:
@@ -170,7 +170,7 @@ def import_price_history(conn):
 
         if rows:
             conn.executemany(
-                "INSERT INTO price_history (product_id, market_price, low_price, mid_price, high_price, date) VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO price_history (product_id, market_price, low_price, mid_price, high_price, date, sub_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 rows
             )
             conn.commit()
