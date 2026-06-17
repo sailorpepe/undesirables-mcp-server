@@ -44,7 +44,7 @@ def export_market_data(conn, output_dir: Path) -> int:
     out = output_dir / "tcg_market_data.csv"
 
     cur.execute("""
-        SELECT c.product_id, c.name, c.clean_name, c.category_id,
+        SELECT c.product_id, c.name, c.clean_name, c.category_id, c.rarity,
                p.market_price, p.low_price, p.mid_price, p.high_price, p.date,
                s.drift, s.volatility
         FROM cards c
@@ -57,12 +57,12 @@ def export_market_data(conn, output_dir: Path) -> int:
 
     with open(out, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["product_id", "name", "clean_name", "category_id",
+        w.writerow(["product_id", "name", "clean_name", "category_id", "rarity",
                      "market_price", "low_price", "mid_price", "high_price",
                      "price_date", "drift", "volatility"])
         w.writerows(rows)
 
-    priced = sum(1 for r in rows if r[4] and r[4] > 0)
+    priced = sum(1 for r in rows if r[5] and r[5] > 0)
     print(f"  tcg_market_data.csv: {len(rows):,} products ({priced:,} priced)")
     return len(rows)
 
@@ -132,8 +132,8 @@ def write_metadata(output_dir: Path, total_products: int, total_history: int):
             f"Daily TCG market prices for {total_products:,} products across 13 games "
             f"including Pokemon, Magic: The Gathering, Yu-Gi-Oh!, Star Wars Unlimited, "
             f"and more. Contains {total_history:,} daily price observations with "
-            f"market/low/mid/high prices, plus drift and volatility statistics. "
-            f"Updated daily from TCGCSV archives."
+            f"market/low/mid/high prices, card rarity, plus drift and volatility "
+            f"statistics. Updated daily from TCGCSV archives."
         ),
         "keywords": [
             "tcg", "trading-cards", "pokemon", "magic-the-gathering",
@@ -142,15 +142,53 @@ def write_metadata(output_dir: Path, total_products: int, total_history: int):
         "resources": [
             {
                 "path": "tcg_market_data.csv",
-                "description": f"All {total_products:,} products with latest prices and volatility stats"
+                "description": f"All {total_products:,} products with their most recent daily price snapshot, card rarity, and drift/volatility statistics. One row per product.",
+                "schema": {
+                    "fields": [
+                        {"name": "product_id", "description": "TCGplayer product ID. Unique, stable identifier for each product. Join key to tcg_price_history.csv.", "type": "integer"},
+                        {"name": "name", "description": "Full product name as listed on TCGplayer (e.g. 'Charizard ex - 199/165').", "type": "string"},
+                        {"name": "clean_name", "description": "Normalized product name with punctuation and special characters stripped (e.g. 'Charizard ex 199165'). Useful for fuzzy matching and search.", "type": "string"},
+                        {"name": "category_id", "description": "TCGplayer category ID identifying the game/product line (e.g. 1 = Magic: The Gathering, 2 = Yu-Gi-Oh!, 3 = Pokemon). See tcg_game_stats.csv for the full ID-to-game mapping.", "type": "integer"},
+                        {"name": "rarity", "description": "Card rarity as defined by TCGplayer, specific to each game (e.g. Pokemon: Common / Uncommon / Rare / Double Rare / Illustration Rare; Magic: Common / Uncommon / Rare / Mythic). Empty for sealed products (booster boxes, packs, decks), which have no rarity.", "type": "string"},
+                        {"name": "market_price", "description": "TCGplayer Market Price in USD on price_date — the benchmark fair-market value derived from recent sales.", "type": "number"},
+                        {"name": "low_price", "description": "Lowest active listing price in USD on price_date.", "type": "number"},
+                        {"name": "mid_price", "description": "Mid/median listing price in USD on price_date.", "type": "number"},
+                        {"name": "high_price", "description": "Highest active listing price in USD on price_date.", "type": "number"},
+                        {"name": "price_date", "description": "Date of this price snapshot (YYYY-MM-DD).", "type": "string"},
+                        {"name": "drift", "description": "Annualized expected log-return (mu) estimated from the product's historical price series. Used as the drift parameter in Monte Carlo price modeling.", "type": "number"},
+                        {"name": "volatility", "description": "Annualized volatility (sigma) estimated from the product's historical price series. Used as the diffusion parameter in Monte Carlo price modeling.", "type": "number"},
+                    ]
+                },
             },
             {
                 "path": "tcg_price_history.csv",
-                "description": f"Daily price time series ({total_history:,} rows)"
+                "description": f"Full daily price time series ({total_history:,} rows). One row per product per day with a recorded market price.",
+                "schema": {
+                    "fields": [
+                        {"name": "product_id", "description": "TCGplayer product ID. Join key to tcg_market_data.csv.", "type": "integer"},
+                        {"name": "name", "description": "Full product name as listed on TCGplayer.", "type": "string"},
+                        {"name": "category_id", "description": "TCGplayer category ID identifying the game/product line. See tcg_game_stats.csv for the ID-to-game mapping.", "type": "integer"},
+                        {"name": "date", "description": "Date of this price observation (YYYY-MM-DD).", "type": "string"},
+                        {"name": "market_price", "description": "TCGplayer Market Price in USD on this date.", "type": "number"},
+                        {"name": "low_price", "description": "Lowest active listing price in USD on this date.", "type": "number"},
+                        {"name": "mid_price", "description": "Mid/median listing price in USD on this date.", "type": "number"},
+                        {"name": "high_price", "description": "Highest active listing price in USD on this date.", "type": "number"},
+                    ]
+                },
             },
             {
                 "path": "tcg_game_stats.csv",
-                "description": "Per-game summary statistics"
+                "description": "Per-game summary statistics. One row per game/category, providing the canonical category_id-to-game mapping.",
+                "schema": {
+                    "fields": [
+                        {"name": "category_id", "description": "TCGplayer category ID. Foreign key referenced by category_id in the other two files.", "type": "integer"},
+                        {"name": "game", "description": "Human-readable game name for this category_id (e.g. 'Pokemon', 'Magic: The Gathering').", "type": "string"},
+                        {"name": "total_products", "description": "Total number of products tracked for this game.", "type": "integer"},
+                        {"name": "with_pricing", "description": "Number of those products that have a market price on the latest snapshot date.", "type": "integer"},
+                        {"name": "avg_market_price", "description": "Average market price in USD across priced products for this game on the latest snapshot date.", "type": "number"},
+                        {"name": "snapshot_date", "description": "Latest price snapshot date used for these statistics (YYYY-MM-DD).", "type": "string"},
+                    ]
+                },
             },
         ],
     }
