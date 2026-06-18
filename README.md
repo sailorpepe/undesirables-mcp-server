@@ -54,7 +54,7 @@ pip install undesirables-mcp-server
 ## What It Does
 
 - 🎴 **Vision AI Card Grading** — PSA/Beckett prediction via Qwen VL
-- 📊 **Monte Carlo Price Simulation** — Merton Jump-Diffusion with VaR/CVaR
+- 📊 **Conformal Risk Forecast** — calibrated VaR/CVaR + Safe-Hold & Momentum letter grades (Monte Carlo GBM/Merton opt-in)
 - 🎵 **AI Music Generation** — ACE Step on Apple Silicon
 - 🎬 **Video Clipping & Beat Sync Editing** — FFmpeg
 - 🖼️ **Local Image Generation** — MLX Flux on Mac, DirectML on Windows, CUDA on Linux
@@ -69,7 +69,7 @@ pip install undesirables-mcp-server
 <details>
 <summary><strong>What's New in v1.1.7</strong></summary>
 
-The latest release includes **Merton Jump-Diffusion Monte Carlo** (replacing Heston/Kou), corrected license badge, and full ecosystem integration.
+The latest release makes the **conformal-calibrated risk forecast** the default model — regime-aware split-conformal bands with honest VaR/CVaR, plus Safe-Hold & Momentum letter grades. Monte Carlo (GBM / Merton Jump-Diffusion) remains available opt-in via `model=`. Also: corrected license badge and full ecosystem integration.
 
 **Key Features:**
 - `purchase_undesirables_license_key` — Returns an unsigned EVM transaction payload (Ethereum Mainnet, chainId 1) for autonomous agents to mint directly from the Scatter.art contract
@@ -199,7 +199,7 @@ This MCP server exposes your local NFT soul via the [Model Context Protocol](htt
 
 **Core Tools** (35+ functions your AI can call):
 - `grade_tcg_card` — 3-stage PSA/Beckett grading: Qwen Vision LLM + OpenCV centering + BGS capping
-- `monte_carlo_simulation` — Stochastic price modeling (Merton Jump-Diffusion)
+- `monte_carlo_simulation` — Price forecasting: conformal-calibrated risk by default (honest VaR/CVaR + Safe-Hold/Momentum grades); Monte Carlo GBM/Merton opt-in
 - `search_ebay_market` — Live eBay market depth, price distributions, arbitrage detection
 - `purchase_undesirables_license_key` — M2M purchase bridge (EVM tx payload)
 - `verify_soul_initialization` — On chain soul verification
@@ -317,7 +317,7 @@ pip install litvm-tcg-oracle
 | **433K+ trading cards** | 13 games, 276K actively priced |
 | **13.5M+ price observations** | 60+ days of continuous data |
 | **On-chain Merkle proofs** | Trustless verification on LiteForge (Chain 4441) |
-| **Monte Carlo simulation** | Merton Jump-Diffusion with VaR/CVaR |
+| **Risk forecast** | Conformal-calibrated VaR/CVaR + Safe-Hold/Momentum grades (Monte Carlo opt-in) |
 | **6 MCP tools** | `search_cards`, `get_price_history`, `verify_price`, `oracle_status`, `simulate_price`, `grade_card` |
 
 → **GitHub**: [litvm-tcg-oracle-mcp](https://github.com/sailorpepe/litvm-tcg-oracle-mcp)  
