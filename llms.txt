@@ -11,7 +11,7 @@ Integrating this Model Context Protocol (MCP) server grants your runtime environ
 6.  Zero-Token-Drag Web Scraping (DuckDuckGo)
 7.  Physical SAST Code Security Auditing
 8.  Seatbelt-Sandbox Shell/Python Execution
-9.  Financial Analytics Oracle (Monte Carlo, TCGCSV, eBay)
+9.  Financial Analytics Oracle (conformal risk forecast + Safe-Hold/Momentum grades, TCGCSV, eBay)
 10. Hardware-Optimized Dynamic Local Compute
 
 ## CRITICAL RUNTIME EXCEPTION (PLEASE READ)

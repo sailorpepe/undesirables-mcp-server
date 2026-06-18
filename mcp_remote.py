@@ -44,7 +44,7 @@ mcp = FastMCP(
     instructions=(
         "Financial intelligence API for the $50B+ trading card market. "
         "Search 427K+ products across 13 games, grade card images with AI, "
-        "forecast prices with Monte Carlo simulation, and get ROI verdicts "
+        "forecast prices with a conformal-calibrated risk model (Monte Carlo opt-in), and get ROI verdicts "
         "on whether to send cards for professional grading. "
         "All data comes from TCGCSV daily market snapshots and real-time analysis."
     ),
@@ -169,20 +169,22 @@ def grade_or_not(
 
 
 # ---------------------------------------------------------------------------
-# [TCG] Monte Carlo Price Forecast — $0.015
+# [TCG] Risk Forecast (conformal default) — $0.015
 # ---------------------------------------------------------------------------
 @mcp.tool()
 def simulate_price(
     card_name: str,
     current_price: float,
-    model: str = "heston",
+    model: str = "conformal",
     days: int = 90,
     simulations: int = 20000,
 ) -> dict:
     """
-    Predict future trading card value using stochastic finance Monte Carlo.
-    Supports Heston (stochastic volatility), Merton (jump-diffusion),
-    and Kou (double-exponential jumps) models.
+    Predict future trading card value. The default model is the
+    conformal-calibrated risk forecast (deterministic drift + regime-aware
+    split-conformal bands, honest VaR/CVaR, plus Safe-Hold & Momentum letter
+    grades). Monte Carlo GBM and Merton jump-diffusion are available opt-in
+    via model="gbm" or model="merton".
 
     Returns full forecast percentiles (5th–95th), model parameters,
     and confidence intervals with complete mathematical transparency.
@@ -269,7 +271,7 @@ def optimize_portfolio(
 ) -> dict:
     """
     Optimize a trading card portfolio using Markowitz mean-variance
-    analysis with Kou jump-diffusion Monte Carlo simulations.
+    analysis with Merton jump-diffusion Monte Carlo simulations.
 
     Provide comma-separated card names, budget, and risk tolerance
     to receive optimal position sizing, per-card allocation weights,

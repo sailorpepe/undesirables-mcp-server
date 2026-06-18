@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.sailorpepe/undesirables-mcp-server",
-  "description": "35+ AI tools for TCG card grading, Monte Carlo pricing, 370K+ product search. BYOK.",
+  "description": "35+ AI tools for TCG card grading, conformal risk forecasting (+ Safe-Hold/Momentum grades), 370K+ product search. BYOK.",
   "repository": {
     "url": "https://github.com/sailorpepe/undesirables-mcp-server",
     "source": "github"
