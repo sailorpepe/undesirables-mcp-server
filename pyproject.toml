@@ -1,7 +1,7 @@
 [project]
 name = "undesirables-mcp-server"
-version = "1.1.7"
-description = "Local-first AI agent MCP server — TCG card grading, Monte Carlo simulations, video production, music generation, image generation, and security scanning. Zero-trust architecture, everything runs on your machine."
+version = "1.1.8"
+description = "Local-first AI agent MCP server — TCG card grading, conformal risk forecasts with Safe-Hold/Momentum card grades, video production, music generation, image generation, and security scanning. Zero-trust architecture, everything runs on your machine."
 requires-python = ">=3.11"
 readme = "README.md"
 license = {text = "BSL-1.1"}
@@ -14,7 +14,8 @@ keywords = [
     "ai-agent",
     "tcg",
     "card-grading",
-    "monte-carlo",
+    "risk-forecasting",
+    "conformal-prediction",
     "local-ai",
     "ollama",
     "nft",
