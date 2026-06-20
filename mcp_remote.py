@@ -35,7 +35,7 @@ from mcp.server.fastmcp import FastMCP
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-X402_BASE = os.getenv("X402_BASE_URL", "http://localhost:8402")
+X402_BASE = os.getenv("X402_BASE_URL", "https://oracle.the-undesirables.com")
 PORT = int(os.getenv("MCP_REMOTE_PORT", "8443"))
 TRANSPORT = os.getenv("MCP_REMOTE_TRANSPORT", "sse")
 
@@ -204,6 +204,43 @@ def simulate_price(
 
 
 # ---------------------------------------------------------------------------
+# [TCG] Card Forecast + Grades — FREE
+# ---------------------------------------------------------------------------
+@mcp.tool()
+def card_forecast(
+    card_name: str = "",
+    product_id: int = 0,
+) -> dict:
+    """
+    Get the conformal-calibrated 30-day price forecast AND letter grades for a
+    single card in ONE free call. Pass either a card_name (resolved to the best
+    match) or a TCGplayer product_id.
+
+    FREE — no payment required. Returns an agent-complete object:
+      price, as_of, regime, point (median 30d), move_pct, prob_up,
+      band50_pct, band90_pct, var95_pct, var99_pct, low90, high90,
+      safe_hold grade (A+..F), momentum grade (A+..F or "NA" on a drift spike),
+      drift_spike, image_url, card_url, and a one-line plain_english read
+      (e.g. "~12% chance it's below $Y in 30 days; Safe-Hold B, Momentum A").
+
+    Use this when a user asks "is this card a safe hold?", "what's the 30-day
+    outlook?", "how risky is X?", or wants a quick grade on a card.
+    Tip: GET /api/v1/forecast (no args) returns the free board of the top ~200
+    cards if the user wants a market overview.
+    """
+    pid = int(product_id) if product_id else 0
+    if not pid:
+        if not card_name:
+            return {"error": "provide card_name or product_id"}
+        hit = _call_x402("/api/v1/search", {"query": card_name, "limit": 1})
+        results = (hit.get("data") or {}).get("results") if isinstance(hit, dict) else None
+        if not results:
+            return {"error": f"no card found for '{card_name}'"}
+        pid = results[0]["product_id"]
+    return _call_x402(f"/api/v1/forecast/{pid}")
+
+
+# ---------------------------------------------------------------------------
 # [TCG] Trending Cards — $0.025
 # ---------------------------------------------------------------------------
 @mcp.tool()
@@ -349,7 +386,7 @@ if __name__ == "__main__":
     print(f"   Transport: {args.transport}")
     print(f"   Port: {args.port}")
     print(f"   x402 Backend: {X402_BASE}")
-    print(f"   Tools: 10 (search, market, grade, grade-or-not, simulate, trending, arb-grade, portfolio, recommend, accuracy)")
+    print(f"   Tools: 11 (search, market, grade, grade-or-not, simulate, card_forecast, trending, arb-grade, portfolio, recommend, accuracy)")
     print()
     print(f"   Perplexity: Settings → Connectors → + Custom → Remote")
     print(f"   URL: https://your-domain.com/{args.transport.replace('streamable-', '')}")
