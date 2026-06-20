@@ -36,7 +36,7 @@ pip install undesirables-mcp-server
 ## Table of Contents
 
 - [What It Does](#what-it-does)
-- [What's New in v1.1.7](#whats-new-in-v117)
+- [What's New in v1.1.8](#whats-new-in-v118)
 - [Prerequisites](#-prerequisites-read-carefully)
 - [Full Setup](#-step-1-install--clone)
 - [Boot The Server](#-step-2-boot-the-server)
@@ -67,9 +67,11 @@ pip install undesirables-mcp-server
 ---
 
 <details>
-<summary><strong>What's New in v1.1.7</strong></summary>
+<summary><strong>What's New in v1.1.8</strong></summary>
 
-The latest release makes the **conformal-calibrated risk forecast** the default model — regime-aware split-conformal bands with honest VaR/CVaR, plus Safe-Hold & Momentum letter grades. Monte Carlo (GBM / Merton Jump-Diffusion) remains available opt-in via `model=`. Also: corrected license badge and full ecosystem integration.
+**v1.1.8** adds the FREE `card_forecast(card_name | product_id)` tool — one call returns the conformal 30-day price forecast **plus Safe-Hold & Momentum letter grades** and a one-line plain-English read (e.g. _"~12% chance it's below $Y in 30 days; Safe-Hold B, Momentum A"_). No payment required.
+
+The **conformal-calibrated risk forecast** is the default model — regime-aware split-conformal bands with honest VaR/CVaR, plus Safe-Hold & Momentum letter grades. Monte Carlo (GBM / Merton Jump-Diffusion) remains available opt-in via `model=`. Also: corrected license badge and full ecosystem integration.
 
 **Key Features:**
 - `purchase_undesirables_license_key` — Returns an unsigned EVM transaction payload (Ethereum Mainnet, chainId 1) for autonomous agents to mint directly from the Scatter.art contract
@@ -199,6 +201,7 @@ This MCP server exposes your local NFT soul via the [Model Context Protocol](htt
 
 **Core Tools** (35+ functions your AI can call):
 - `grade_tcg_card` — 3-stage PSA/Beckett grading: Qwen Vision LLM + OpenCV centering + BGS capping
+- `card_forecast` — **FREE** one-call conformal 30-day forecast + Safe-Hold/Momentum letter grades + plain-English read (pass a card name or TCGplayer product_id)
 - `monte_carlo_simulation` — Price forecasting: conformal-calibrated risk by default (honest VaR/CVaR + Safe-Hold/Momentum grades); Monte Carlo GBM/Merton opt-in
 - `search_ebay_market` — Live eBay market depth, price distributions, arbitrage detection
 - `purchase_undesirables_license_key` — M2M purchase bridge (EVM tx payload)
@@ -332,7 +335,7 @@ pip install litvm-tcg-oracle
 - **LitVM Oracle**: [the-undesirables.com/litvm](https://the-undesirables.com/litvm)
 - **Mint**: [scatter.art/the-undesirables](https://scatter.art/the-undesirables)
 - **Docs**: [the-undesirables.com/docs](https://the-undesirables.com/docs)
-- **PyPI (MCP)**: [undesirables-mcp-server](https://pypi.org/project/undesirables-mcp-server/) (v1.1.7)
+- **PyPI (MCP)**: [undesirables-mcp-server](https://pypi.org/project/undesirables-mcp-server/) (v1.1.8)
 - **PyPI (LitVM)**: [litvm-tcg-oracle](https://pypi.org/project/litvm-tcg-oracle/) (v1.0.3)
 - **npm**: [plugin-undesirables](https://npmjs.com/package/plugin-undesirables) (ElizaOS plugin, v2.5.0)
 - **Oracle API**: [oracle.the-undesirables.com](https://oracle.the-undesirables.com) (28 endpoints, x402 micropayments)
