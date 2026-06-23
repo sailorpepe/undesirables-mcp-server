@@ -88,7 +88,16 @@ def ensure_schema(db):
         product_id INTEGER, name TEXT, sub_type TEXT, market_price REAL,
         low_price REAL, high_price REAL, num_listings INTEGER, date TEXT, source TEXT,
         PRIMARY KEY (product_id, date))""")
+    try:                                  # card art URL (Vibes uses DYLI/OCG S3, not TCGplayer CDN)
+        db.execute("ALTER TABLE cards ADD COLUMN image_url TEXT")
+    except Exception:
+        pass
     db.commit()
+
+
+def image_of(p):
+    return (p.get("main_image_override") or (p.get("images") or [None])[0]
+            or p.get("master_image") or None)
 
 
 def main():
@@ -115,6 +124,7 @@ def main():
             "low": round(float(p.get("lowest_price") or mk), 2),
             "high": round(float(p.get("price") or mk), 2),
             "avail": int(p.get("total_available_auto") or 0),
+            "image": image_of(p),
         })
     print(f"  {len(rows)} priced; sample:", [(r['name'][:34], r['market']) for r in rows[:3]])
     if a.dry_run:
@@ -129,13 +139,15 @@ def main():
 
     # 1) cards (additive) + FTS sync
     for r in rows:
-        full = f"Vibes - {r['name']}"
+        nm = r["name"]
+        full = nm if nm.lower().startswith("vibes") else f"Vibes - {nm}"   # avoid "Vibes - Vibes - ..."
         clean = re.sub(r"[^A-Za-z0-9 ]", "", full).strip()
         cur = db.execute("INSERT OR IGNORE INTO cards (product_id, name, clean_name, category_id, rarity) VALUES (?,?,?,?,?)",
                          (r["pid"], full, clean, VIBES_CATEGORY_ID, r["rarity"]))
         if cur.rowcount:
             rid = db.execute("SELECT rowid FROM cards WHERE product_id=?", (r["pid"],)).fetchone()[0]
             db.execute("INSERT INTO cards_fts(rowid, name, clean_name) VALUES (?,?,?)", (rid, full, clean))
+        db.execute("UPDATE cards SET image_url=? WHERE product_id=?", (r["image"], r["pid"]))
 
     # 2) persistent accumulator (real date; survives the nightly wipe)
     db.executemany("INSERT OR REPLACE INTO vibes_price_history "
