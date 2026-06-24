@@ -92,6 +92,15 @@ def ensure_schema(db):
         db.execute("ALTER TABLE cards ADD COLUMN image_url TEXT")
     except Exception:
         pass
+    # sales signals (DYLI has no historical-sales API, so we accrue these daily:
+    # last_sale = last traded price, total_orders = cumulative sales -> day-over-day
+    # delta is units sold that day, highest_bid = top bid, supply = total minted)
+    for col, typ in (("last_sale", "REAL"), ("total_orders", "INTEGER"),
+                     ("highest_bid", "REAL"), ("supply", "INTEGER")):
+        try:
+            db.execute(f"ALTER TABLE vibes_price_history ADD COLUMN {col} {typ}")
+        except Exception:
+            pass
     db.commit()
 
 
@@ -125,6 +134,10 @@ def main():
             "high": round(float(p.get("price") or mk), 2),
             "avail": int(p.get("total_available_auto") or 0),
             "image": image_of(p),
+            "last_sale": float(p["last_sale"]) if p.get("last_sale") else None,
+            "orders": int(p.get("total_orders") or 0),
+            "bid": float(p["highest_bid"]) if p.get("highest_bid") else None,
+            "supply": int(p.get("supply") or 0),
         })
     print(f"  {len(rows)} priced; sample:", [(r['name'][:34], r['market']) for r in rows[:3]])
     if a.dry_run:
@@ -151,9 +164,11 @@ def main():
 
     # 2) persistent accumulator (real date; survives the nightly wipe)
     db.executemany("INSERT OR REPLACE INTO vibes_price_history "
-                   "(product_id, name, sub_type, market_price, low_price, high_price, num_listings, date, source) "
-                   "VALUES (?,?,?,?,?,?,?,?, 'dyli')",
-                   [(r["pid"], r["name"], r["sub_type"], r["market"], r["low"], r["high"], r["avail"], today) for r in rows])
+                   "(product_id, name, sub_type, market_price, low_price, high_price, num_listings, date, source, "
+                   " last_sale, total_orders, highest_bid, supply) "
+                   "VALUES (?,?,?,?,?,?,?,?, 'dyli', ?,?,?,?)",
+                   [(r["pid"], r["name"], r["sub_type"], r["market"], r["low"], r["high"], r["avail"], today,
+                     r["last_sale"], r["orders"], r["bid"], r["supply"]) for r in rows])
 
     # 3) mirror latest snapshot into price_history at the TCGCSV max date (do NOT shift MAX(date))
     db.execute(f"DELETE FROM price_history WHERE product_id >= {PID_BASE}")
