@@ -41,19 +41,9 @@ tcg_daily_snapshot:
     - python3 scripts/kaggle_export.py --output /tmp/kaggle_daily --push || echo "⚠️ Kaggle push failed (check KAGGLE_USERNAME/KAGGLE_KEY)"
     - echo "✅ Pipeline complete."
 
-  after_script:
-    # Auto-commit only if tcg_stats.json changed
-    - |
-      export PATH="/opt/homebrew/bin:$PATH"
-      cd $CI_PROJECT_DIR
-      if git diff --quiet data/tcg_stats.json 2>/dev/null; then
-        echo "No changes to tcg_stats.json — skipping commit."
-      else
-        git add data/tcg_stats.json
-        git commit -m "chore: update tcg stats [skip ci]"
-        git push "https://oauth2:${CI_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" HEAD:$CI_COMMIT_REF_NAME
-        echo "📦 Committed and pushed updated stats."
-      fi
+  # NOTE: data/tcg_stats.json (~36MB) is a pipeline artifact — intentionally NOT
+  # committed to git (it's gitignored + kept only as the CI artifact below). The old
+  # daily auto-commit/push was adding 1.2M-line commits on every run; removed.
 
   # Cache archives between runs to avoid re-downloading
   cache:
