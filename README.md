@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![The Undesirables MCP Banner](./og_preview.png)
+![The Undesirables MCP Banner](https://raw.githubusercontent.com/sailorpepe/undesirables-mcp-server/main/og_preview.png)
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg?style=flat-square)](https://www.python.org/downloads/)
 [![FastMCP](https://img.shields.io/badge/powered%20by-FastMCP-green.svg?style=flat-square)](https://github.com/modelcontextprotocol/fastmcp)
@@ -17,7 +17,7 @@
 
 <div align="center">
 
-<img src="assets/demo.gif" alt="Undesirables MCP Server Demo" width="480" />
+<img src="https://raw.githubusercontent.com/sailorpepe/undesirables-mcp-server/main/assets/demo.gif" alt="Undesirables MCP Server Demo" width="480" />
 
 </div>
 
