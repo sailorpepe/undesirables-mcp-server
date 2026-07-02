@@ -150,6 +150,20 @@ def main():
     ensure_schema(db)
     tcg_max = db.execute("SELECT MAX(date) FROM price_history WHERE product_id < 9500000").fetchone()[0]
 
+    # Observability: DYLI delists sold-out/removed products (their history tail stops
+    # accruing). Log what vanished vs the previous snapshot so drops aren't silent.
+    prev_date = db.execute("SELECT MAX(date) FROM vibes_price_history WHERE source='dyli' AND date < ?",
+                           (today,)).fetchone()[0]
+    if prev_date:
+        prev = {r[0]: r[1] for r in db.execute(
+            "SELECT product_id, name FROM vibes_price_history WHERE source='dyli' AND date=?", (prev_date,))}
+        now_pids = {r["pid"] for r in rows}
+        gone = [(p, n) for p, n in prev.items() if p not in now_pids]
+        if gone:
+            print(f"  [delisted] {len(gone)} card(s) vanished from DYLI since {prev_date}:")
+            for p, n in gone[:10]:
+                print(f"    - {n[:60]} (pid {p})")
+
     # 1) cards (additive) + FTS sync
     for r in rows:
         nm = r["name"]
