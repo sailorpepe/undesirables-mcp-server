@@ -155,8 +155,9 @@ def main():
         print(f"[dry-run] {len(rows_out)} market rows, {len(graded_rows)} graded rows, {calls} API calls — no writes")
         return
     db.executemany("INSERT OR REPLACE INTO vibes_ebay_history VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", rows_out)
+    db.commit()          # market rows land even if the graded section fails
     if graded_rows:
-        db.executemany("INSERT INTO graded_prices (product_id, card_name, game_name, grade, grading_company, "
+        db.executemany("INSERT OR REPLACE INTO graded_prices (product_id, card_name, game_name, grade, grading_company, "
                        "median_price, low_price, high_price, num_listings, raw_market_price, ebay_search_query, "
                        "source, fetched_at, expires_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", graded_rows)
     db.commit()
