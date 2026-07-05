@@ -106,7 +106,31 @@ def variant_of(name, tcg_subtype=None):
     return "Common"
 
 
+def base_key(name):
+    """Canonical base-card identity — strips variant/grade/serial/set noise so
+    Common/Foil/Arctic/Sketch/Graded copies of the same art share one key.
+    Enables variant-ladder analytics (foil/common multiples, mispriced tiers)."""
+    x = (name or "").lower()
+    x = re.sub(r"vibes\s*-?\s*|\b20\d\d\b|vibes tcg", " ", x)
+    x = re.sub(r"arctic\s*foil|holofoil|\bfoil\b|\bholo\b|\bsketch\b|\bdiamond\b|\b(psa|sgc|cgc|bgs)\s*\d+(\.5)?\b", " ", x)
+    x = re.sub(r"#?\s?\d{1,4}\s*/\s*\d{1,4}|#\d{1,4}\b", " ", x)
+    x = re.sub(r"legend of (the )?lils?|enter the huddle|birb & pengu|birb and pengu|1st edition|tcg promos?|\btcg\b", " ", x)
+    return re.sub(r"[^a-z0-9]+", " ", x).strip()
+
+
+def print_run(name):
+    """Serial print-run size from '#N/M' in the name (ultra-limited tier: /10,
+    /25, /150, /200). None when unserialized."""
+    m2 = re.search(r"#?\s?\d{1,4}\s*/\s*(\d{1,4})", name or "")
+    return int(m2.group(1)) if m2 else None
+
+
 def ensure_schema(db):
+    for col, typ in (("base_key", "TEXT"), ("print_run", "INTEGER")):
+        try:
+            db.execute(f"ALTER TABLE vibes_price_history ADD COLUMN {col} {typ}")
+        except Exception:
+            pass                     # already exists
     db.execute("""CREATE TABLE IF NOT EXISTS vibes_price_history (
         product_id INTEGER, name TEXT, sub_type TEXT, market_price REAL,
         low_price REAL, high_price REAL, num_listings INTEGER, date TEXT, source TEXT,
@@ -152,6 +176,8 @@ def main():
         rows.append({
             "pid": pid, "name": name, "rarity": rarity,
             "sub_type": variant_of(p.get("name"), p.get("tcg_subtype")),
+            "base_key": base_key(p.get("name")),
+            "print_run": print_run(p.get("name")),
             "market": round(mk, 2),
             "low": round(float(p.get("lowest_price") or mk), 2),
             "high": round(float(p.get("price") or mk), 2),
@@ -175,6 +201,17 @@ def main():
 
     # Observability: DYLI delists sold-out/removed products (their history tail stops
     # accruing). Log what vanished vs the previous snapshot so drops aren't silent.
+    # Sell-out events: cards whose supply hit 0 today (vs >0 yesterday)
+    souts = db.execute("""SELECT a.name, b.supply FROM vibes_price_history a
+        JOIN vibes_price_history b ON a.product_id=b.product_id AND b.source='dyli'
+          AND b.date=(SELECT MAX(date) FROM vibes_price_history WHERE source='dyli' AND date < a.date)
+        WHERE a.source='dyli' AND a.date=? AND COALESCE(a.supply,0)=0 AND COALESCE(b.supply,0)>0""",
+        (today,)).fetchall()
+    if souts:
+        print(f"  [sellout] {len(souts)} card(s) hit zero supply today:")
+        for nm, prev_s in souts[:8]:
+            print(f"    - {nm[:60]} (was {prev_s})")
+
     prev_date = db.execute("SELECT MAX(date) FROM vibes_price_history WHERE source='dyli' AND date < ?",
                            (today,)).fetchone()[0]
     if prev_date:
@@ -201,10 +238,10 @@ def main():
 
     # 2) persistent accumulator (real date; survives the nightly wipe)
     db.executemany("INSERT OR REPLACE INTO vibes_price_history "
-                   "(product_id, name, sub_type, market_price, low_price, high_price, num_listings, date, source, "
+                   "(product_id, name, sub_type, base_key, print_run, market_price, low_price, high_price, num_listings, date, source, "
                    " last_sale, total_orders, highest_bid, supply) "
                    "VALUES (?,?,?,?,?,?,?,?, 'dyli', ?,?,?,?)",
-                   [(r["pid"], r["name"], r["sub_type"], r["market"], r["low"], r["high"], r["avail"], today,
+                   [(r["pid"], r["name"], r["sub_type"], r["base_key"], r["print_run"], r["market"], r["low"], r["high"], r["avail"], today,
                      r["last_sale"], r["orders"], r["bid"], r["supply"]) for r in rows])
 
     # 3) mirror latest snapshot into price_history at the TCGCSV max date (do NOT shift MAX(date))
