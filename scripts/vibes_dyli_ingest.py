@@ -85,6 +85,7 @@ def market_of(p):
 
 
 VARIANT_PATTERNS = [           # order matters: most specific first
+    ("Graded", r"\b(psa|sgc|cgc|bgs)\s*[0-9]{1,2}(\.5)?\b"),   # slabbed singles listed on DYLI
     ("Arctic Foil", r"arctic\s*foil|arctic"),
     ("Sketch",      r"\bsketch\b"),
     ("Diamond",     r"\bdiamond\b"),
