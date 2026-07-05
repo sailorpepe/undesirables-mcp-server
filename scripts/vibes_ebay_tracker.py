@@ -49,6 +49,10 @@ GRADED_TOP = 15           # slab queries: top cards x PSA 10 / PSA 9
 EXPIRE_DAYS = 7
 
 
+from vibes_dyli_ingest import variant_of   # shared variant parser (name-based)
+VARIANT_WORDS = ["foil", "holo", "arctic", "sketch", "diamond"]
+
+
 def load_ebay():
     for line in open(X402_ENV):
         m = re.match(r"^(EBAY_[A-Z_]+)=(.*)$", line.strip())
@@ -121,7 +125,13 @@ def main():
             "AND name NOT LIKE '%Deck%' AND name NOT LIKE '%Case%' AND name NOT LIKE '%Bundle%' "
             "ORDER BY total_orders DESC LIMIT ?", (TOP_SINGLES,)):
         single_pids[nm] = pid
-        targets.append(("single", nm, f"{nm} Vibes TCG", [], ["box", "case", "deck"], True))
+        var = variant_of(nm)
+        if var == "Common":
+            # keep foil/sketch asks OUT of common medians
+            targets.append(("single", nm, f"{nm} Vibes TCG", [], ["box", "case", "deck"] + VARIANT_WORDS, True))
+        else:
+            token = var.split()[0].lower()          # 'arctic', 'sketch', 'foil', 'diamond'
+            targets.append(("single", nm, f"{nm} Vibes TCG", [token], ["box", "case", "deck"], True))
 
     rows_out = []
     for kind, nm, q, req, exc, single in targets:
@@ -142,8 +152,11 @@ def main():
     graded_rows = []
     tops = [t[1] for t in targets if t[0] == "single"][:GRADED_TOP]
     for nm in tops:
+        var = variant_of(nm)
+        v_req = [] if var == "Common" else [var.split()[0].lower()]
+        v_exc = VARIANT_WORDS if var == "Common" else []
         for grade in ("PSA 10", "PSA 9"):
-            sld = stats_of(search(ebay, f"{nm} Vibes {grade}", sold=False), [grade.split()[1]], [], True); calls += 1
+            sld = stats_of(search(ebay, f"{nm} Vibes {grade}", sold=False), [grade.split()[1]] + v_req, v_exc, True); calls += 1
             if sld:
                 graded_rows.append((single_pids.get(nm, 0), nm, "Vibes TCG", grade.split()[1], "PSA",
                                     sld["median"], sld["low"], sld["high"], sld["n"], None,

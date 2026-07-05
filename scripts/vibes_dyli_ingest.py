@@ -18,7 +18,8 @@ Schema discipline (the 3am import does DELETE FROM price_history):
 
 Read-only on TCGCSV otherwise; stdlib only; no auth (DYLI /api/explore is open).
 """
-import os, re, sys, json, time, sqlite3, argparse, urllib.request
+import os
+import re, re, sys, json, time, sqlite3, argparse, urllib.request
 from datetime import date
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -83,6 +84,27 @@ def market_of(p):
     return None
 
 
+VARIANT_PATTERNS = [           # order matters: most specific first
+    ("Arctic Foil", r"arctic\s*foil|arctic"),
+    ("Sketch",      r"\bsketch\b"),
+    ("Diamond",     r"\bdiamond\b"),
+    ("Foil",        r"\bfoil\b|holofoil|\bholo\b"),
+    ("Graded Exclusive", r"\b(psa|sgc|cgc|bgs)\b.*exclusive|exclusive.*\b(psa|sgc|cgc|bgs)\b"),
+]
+
+def variant_of(name, tcg_subtype=None):
+    """Vibes variant from the product NAME — DYLI's tcg_subtype is ~97% 'Normal'
+    even for foils, but names reliably carry 'Foil', 'Arctic Foil', 'Sketch',
+    'Diamond', or grader-exclusive markers. Default: Common."""
+    low = (name or "").lower()
+    for label, pat in VARIANT_PATTERNS:
+        if re.search(pat, low):
+            return label
+    if tcg_subtype and tcg_subtype not in ("Normal", "None", None):
+        return tcg_subtype
+    return "Common"
+
+
 def ensure_schema(db):
     db.execute("""CREATE TABLE IF NOT EXISTS vibes_price_history (
         product_id INTEGER, name TEXT, sub_type TEXT, market_price REAL,
@@ -128,7 +150,7 @@ def main():
         rarity = det.get("rarity") or p.get("subcategory") or ""
         rows.append({
             "pid": pid, "name": name, "rarity": rarity,
-            "sub_type": p.get("tcg_subtype") or "Normal",
+            "sub_type": variant_of(p.get("name"), p.get("tcg_subtype")),
             "market": round(mk, 2),
             "low": round(float(p.get("lowest_price") or mk), 2),
             "high": round(float(p.get("price") or mk), 2),
