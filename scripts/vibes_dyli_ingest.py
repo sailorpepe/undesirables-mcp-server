@@ -19,7 +19,7 @@ Schema discipline (the 3am import does DELETE FROM price_history):
 Read-only on TCGCSV otherwise; stdlib only; no auth (DYLI /api/explore is open).
 """
 import os
-import re, re, sys, json, time, sqlite3, argparse, urllib.request
+import re, sys, json, time, sqlite3, argparse, urllib.request
 from datetime import date
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -84,8 +84,11 @@ def market_of(p):
     return None
 
 
+# Two-dimensional model (v4): sub_type = the card's UNDERLYING variant for every
+# row (slabbed or raw); grader/grade_num carry the slab dimension separately
+# (NULL for raw). A "PSA 10 Sketch" therefore joins its Sketch ladder AND its
+# slab premium is computable against the raw Sketch floor.
 VARIANT_PATTERNS = [           # order matters: most specific first
-    ("Graded", r"\b(psa|sgc|cgc|bgs)\s*[0-9]{1,2}(\.5)?\b"),   # slabbed singles listed on DYLI
     ("Arctic Foil", r"arctic\s*foil|arctic"),
     ("Sketch",      r"\bsketch\b"),
     ("Diamond",     r"\bdiamond\b"),
@@ -104,6 +107,15 @@ def variant_of(name, tcg_subtype=None):
     if tcg_subtype and tcg_subtype not in ("Normal", "None", None):
         return tcg_subtype
     return "Common"
+
+
+_SLAB = re.compile(r"\b(psa|sgc|cgc|bgs)\s*([0-9]{1,2}(?:\.5)?)\b", re.I)
+
+
+def slab_of(name):
+    """(grader, grade) if the listing is a graded slab, else (None, None)."""
+    m2 = _SLAB.search(name or "")
+    return (m2.group(1).upper(), float(m2.group(2))) if m2 else (None, None)
 
 
 def base_key(name):
@@ -126,7 +138,8 @@ def print_run(name):
 
 
 def ensure_schema(db):
-    for col, typ in (("base_key", "TEXT"), ("print_run", "INTEGER")):
+    for col, typ in (("base_key", "TEXT"), ("print_run", "INTEGER"),
+                     ("grader", "TEXT"), ("grade_num", "REAL")):
         try:
             db.execute(f"ALTER TABLE vibes_price_history ADD COLUMN {col} {typ}")
         except Exception:
@@ -178,6 +191,8 @@ def main():
             "sub_type": variant_of(p.get("name"), p.get("tcg_subtype")),
             "base_key": base_key(p.get("name")),
             "print_run": print_run(p.get("name")),
+            "grader": slab_of(p.get("name"))[0],
+            "grade_num": slab_of(p.get("name"))[1],
             "market": round(mk, 2),
             "low": round(float(p.get("lowest_price") or mk), 2),
             "high": round(float(p.get("price") or mk), 2),
@@ -238,10 +253,10 @@ def main():
 
     # 2) persistent accumulator (real date; survives the nightly wipe)
     db.executemany("INSERT OR REPLACE INTO vibes_price_history "
-                   "(product_id, name, sub_type, base_key, print_run, market_price, low_price, high_price, num_listings, date, source, "
+                   "(product_id, name, sub_type, base_key, print_run, grader, grade_num, market_price, low_price, high_price, num_listings, date, source, "
                    " last_sale, total_orders, highest_bid, supply) "
                    "VALUES (?,?,?,?,?,?,?,?, 'dyli', ?,?,?,?)",
-                   [(r["pid"], r["name"], r["sub_type"], r["base_key"], r["print_run"], r["market"], r["low"], r["high"], r["avail"], today,
+                   [(r["pid"], r["name"], r["sub_type"], r["base_key"], r["print_run"], r["grader"], r["grade_num"], r["market"], r["low"], r["high"], r["avail"], today,
                      r["last_sale"], r["orders"], r["bid"], r["supply"]) for r in rows])
 
     # 3) mirror latest snapshot into price_history at the TCGCSV max date (do NOT shift MAX(date))
