@@ -255,7 +255,7 @@ def main():
     db.executemany("INSERT OR REPLACE INTO vibes_price_history "
                    "(product_id, name, sub_type, base_key, print_run, grader, grade_num, market_price, low_price, high_price, num_listings, date, source, "
                    " last_sale, total_orders, highest_bid, supply) "
-                   "VALUES (?,?,?,?,?,?,?,?, 'dyli', ?,?,?,?)",
+                   "VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'dyli', ?,?,?,?)",
                    [(r["pid"], r["name"], r["sub_type"], r["base_key"], r["print_run"], r["grader"], r["grade_num"], r["market"], r["low"], r["high"], r["avail"], today,
                      r["last_sale"], r["orders"], r["bid"], r["supply"]) for r in rows])
 
