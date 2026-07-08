@@ -49,7 +49,8 @@ GRADED_TOP = 15           # slab queries: top cards x PSA 10 / PSA 9
 EXPIRE_DAYS = 7
 
 
-from vibes_dyli_ingest import variant_of   # shared variant parser (name-based)
+from vibes_dyli_ingest import variant_of
+import vibes_dyli_ingest as variant_mod   # shared variant parser (name-based)
 VARIANT_WORDS = ["foil", "holo", "arctic", "sketch", "diamond"]
 
 
@@ -167,7 +168,11 @@ def main():
     if a.dry_run:
         print(f"[dry-run] {len(rows_out)} market rows, {len(graded_rows)} graded rows, {calls} API calls — no writes")
         return
-    db.executemany("INSERT OR REPLACE INTO vibes_ebay_history VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", rows_out)
+    db.executemany("INSERT OR REPLACE INTO vibes_ebay_history (product_key, name, kind, active_median, active_low, active_high, active_n, sold_median, sold_low, sold_high, sold_n, date) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", rows_out)
+    # populate the v4 cross-market-join columns for the rows just written
+    for _k, _nm, *_ in rows_out:
+        db.execute("UPDATE vibes_ebay_history SET base_key=?, variant=? WHERE product_key=? AND date=?",
+                   (variant_mod.base_key(_nm), variant_of(_nm), _k, today))
     db.commit()          # market rows land even if the graded section fails
     if graded_rows:
         db.executemany("INSERT OR REPLACE INTO graded_prices (product_id, card_name, game_name, grade, grading_company, "
