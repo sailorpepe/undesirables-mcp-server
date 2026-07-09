@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.sailorpepe/undesirables-mcp-server",
-  "description": "Local-first AI oracle: AI card grading, conformal risk forecasts (Safe-Hold/Momentum grades), 442K+ card search, x402 pay-per-call, and on-chain soul personalities. Zero-trust, BYOK.",
+  "description": "Conformal TCG risk forecasts + AI card grading, x402 pay-per-call oracle, on-chain soul agents.",
   "repository": {
     "url": "https://github.com/sailorpepe/undesirables-mcp-server",
     "source": "github"
