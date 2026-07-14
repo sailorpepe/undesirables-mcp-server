@@ -107,34 +107,33 @@ def main():
         problems.append(f"oracle /health unreachable: {str(e)[:50]}")
 
     # 4) Bazaar 30-day recency filter (x402 market research 2026-07-14):
-    # endpoints with no settled payment in 30d are silently DROPPED from the
-    # CDP Bazaar index. We self-settle to stay listed; alarm at 25d so there's
-    # a 5-day buffer. Last full self-settle sweep: 2026-07-12 (seed). Newer
-    # self-settlements are detected from oracle_requests.jsonl payer records.
-    SELF_WALLET = "0x359fe334c35249f8bb3b7d89392cc2f1b5958637"
-    last_settle = date(2026, 7, 12)
+    # resources with no settled payment in 30d are silently DROPPED from the
+    # CDP Bazaar index. AUTHORITATIVE clock = the Bazaar's own
+    # quality.lastCalledAt (local memory was 11 days off when checked Jul-14).
+    # Primary defense: scripts/bazaar_keepalive.py auto-sweeps at 21d; this
+    # alarm at 25d is the backstop if the keepalive itself breaks.
     try:
         import json
-        reqlog = os.path.expanduser("~/logs/oracle_requests.jsonl")
-        if os.path.exists(reqlog):
-            with open(reqlog) as f:
-                for line in f:
-                    if SELF_WALLET not in line:
-                        continue
-                    try:
-                        rec = json.loads(line)
-                        if rec.get("payer") == SELF_WALLET and rec.get("status") == 200:
-                            d = date.fromisoformat(rec["ts"][:10])
-                            if d > last_settle:
-                                last_settle = d
-                    except Exception:
-                        continue
-        settle_age = (TODAY - last_settle).days
-        log(f"  Bazaar recency: last self-settle {last_settle} ({settle_age}d ago; drop at 30d)")
-        if settle_age >= 25:
-            problems.append(
-                f"Bazaar recency: last self-settle {settle_age}d ago — endpoints drop "
-                f"from the CDP Bazaar index at 30d. Re-run the paid-endpoint sweep now.")
+        req = urllib.request.Request(
+            "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant"
+            "?payTo=0x642e8a7C289381f24f0395e0539f0bA41c74Cc1B",
+            headers={"User-Agent": "undesirables-healthcheck/1.0"})
+        d = json.load(urllib.request.urlopen(req, timeout=30))
+        items = d.get("items") or d.get("resources") or []
+        stamps = [i["quality"]["lastCalledAt"] for i in items
+                  if (i.get("quality") or {}).get("lastCalledAt")]
+        if len(items) < 12:
+            problems.append(f"Bazaar index: only {len(items)} of 12 resources listed — some were dropped")
+        if stamps:
+            oldest = min(date.fromisoformat(s[:10]) for s in stamps)
+            settle_age = (TODAY - oldest).days
+            log(f"  Bazaar recency: {len(items)} listed; stalest settle {oldest} ({settle_age}d ago; drop at 30d)")
+            if settle_age >= 25:
+                problems.append(
+                    f"Bazaar recency: stalest listing {settle_age}d unpaid (drop at 30d) — "
+                    f"the keepalive should have swept at 21d; run x402_smoke sweep + check bazaar_keepalive.log")
+        else:
+            problems.append("Bazaar recency: no lastCalledAt data on any listing")
     except Exception as e:
         problems.append(f"Bazaar recency check failed: {str(e)[:50]}")
 
