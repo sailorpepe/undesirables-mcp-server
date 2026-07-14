@@ -106,6 +106,38 @@ def main():
     except Exception as e:
         problems.append(f"oracle /health unreachable: {str(e)[:50]}")
 
+    # 4) Bazaar 30-day recency filter (x402 market research 2026-07-14):
+    # endpoints with no settled payment in 30d are silently DROPPED from the
+    # CDP Bazaar index. We self-settle to stay listed; alarm at 25d so there's
+    # a 5-day buffer. Last full self-settle sweep: 2026-07-12 (seed). Newer
+    # self-settlements are detected from oracle_requests.jsonl payer records.
+    SELF_WALLET = "0x359fe334c35249f8bb3b7d89392cc2f1b5958637"
+    last_settle = date(2026, 7, 12)
+    try:
+        import json
+        reqlog = os.path.expanduser("~/logs/oracle_requests.jsonl")
+        if os.path.exists(reqlog):
+            with open(reqlog) as f:
+                for line in f:
+                    if SELF_WALLET not in line:
+                        continue
+                    try:
+                        rec = json.loads(line)
+                        if rec.get("payer") == SELF_WALLET and rec.get("status") == 200:
+                            d = date.fromisoformat(rec["ts"][:10])
+                            if d > last_settle:
+                                last_settle = d
+                    except Exception:
+                        continue
+        settle_age = (TODAY - last_settle).days
+        log(f"  Bazaar recency: last self-settle {last_settle} ({settle_age}d ago; drop at 30d)")
+        if settle_age >= 25:
+            problems.append(
+                f"Bazaar recency: last self-settle {settle_age}d ago — endpoints drop "
+                f"from the CDP Bazaar index at 30d. Re-run the paid-endpoint sweep now.")
+    except Exception as e:
+        problems.append(f"Bazaar recency check failed: {str(e)[:50]}")
+
     # ── verdict + single phone alert ──
     if problems:
         body = f"{len(problems)} STACK ISSUE(S):\n" + "\n".join(f"• {p}" for p in problems)
