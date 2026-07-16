@@ -119,9 +119,12 @@ def main():
             problems.append(f"conformal refit MISSED: offsets fit_date={fit} (expected {TODAY})")
     except Exception as e:
         problems.append(f"conformal offsets unreadable: {str(e)[:50]}")
+    # NOTE: never use a job's LOG mtime as its artifact — cron's `>> log 2>&1`
+    # redirect refreshes the log even when bash/python dies at spawn (the exact
+    # failure class we're guarding). Use true OUTPUTS: written files / git HEAD.
     for label, path, max_h in (
-        ("preimage backup (05:20)", os.path.expanduser("~/logs/backup_preimages.log"), 26),
         ("ACI adjust weights (05:25)", os.path.join(os.path.expanduser("~/Documents/undesirables-x402-server"), "aci_adjust.json"), 26),
+        ("Shroomy kaggle archiver (hourly loop)", os.path.expanduser("~/logs/kaggle_archiver.log"), 3),
     ):
         try:
             age_h = (datetime.now() - datetime.fromtimestamp(os.path.getmtime(path))).total_seconds() / 3600
@@ -130,6 +133,18 @@ def main():
                 problems.append(f"{label} STALE: artifact {age_h:.0f}h old (max {max_h}h)")
         except OSError as e:
             problems.append(f"{label} artifact missing: {str(e)[:40]}")
+    # preimage backup: the artifact is the backup REPO's latest commit
+    try:
+        import subprocess
+        ts = int(subprocess.run(
+            ["git", "-C", os.path.expanduser("~/Documents/undesirables-oracle-preimages"),
+             "log", "-1", "--format=%ct"], capture_output=True, text=True, timeout=15).stdout.strip())
+        age_h = (datetime.now().timestamp() - ts) / 3600
+        log(f"  preimage backup (05:20): last repo commit {age_h:.1f}h ago")
+        if age_h > 26:
+            problems.append(f"preimage backup STALE: last commit {age_h:.0f}h ago (max 26h)")
+    except Exception as e:
+        problems.append(f"preimage backup repo unreadable: {str(e)[:40]}")
 
     # 4) Bazaar 30-day recency filter (x402 market research 2026-07-14):
     # resources with no settled payment in 30d are silently DROPPED from the
