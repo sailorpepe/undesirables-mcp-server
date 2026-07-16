@@ -211,23 +211,31 @@ def write_metadata(output_dir: Path, total_products: int, total_history: int,
 
 
 def push_to_kaggle(output_dir: Path):
-    """Push dataset to Kaggle using the CLI."""
+    """Push dataset to Kaggle using the CLI.
+
+    Timeout is 30 min: the price_history CSV is ~1GB and the old 300s cap
+    caused 21 consecutive silent timeouts (Jun 25–Jul 16, dataset went stale
+    ~3 weeks before anyone noticed). Duration is logged to tune this from
+    data rather than guesses."""
+    import time
+    t0 = time.time()
     try:
         result = subprocess.run(
             ["kaggle", "datasets", "version", "-p", str(output_dir),
              "-m", f"Daily update {datetime.now().strftime('%Y-%m-%d')}",
              "--dir-mode", "zip"],
-            capture_output=True, text=True, timeout=300,
+            capture_output=True, text=True, timeout=1800,
         )
+        mins = (time.time() - t0) / 60
         if result.returncode == 0:
-            print(f"  ✅ Kaggle push succeeded")
+            print(f"  ✅ Kaggle push succeeded in {mins:.1f} min")
             print(f"  {result.stdout.strip()}")
         else:
-            print(f"  ❌ Kaggle push failed: {result.stderr.strip()}")
+            print(f"  ❌ Kaggle push failed after {mins:.1f} min: {result.stderr.strip()}")
     except FileNotFoundError:
         print("  ❌ kaggle CLI not found. Install with: pip3 install kaggle")
     except subprocess.TimeoutExpired:
-        print("  ❌ Kaggle push timed out (>5 min)")
+        print(f"  ❌ Kaggle push timed out (>{1800//60} min)")
 
 
 def main():
