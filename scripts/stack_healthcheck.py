@@ -106,6 +106,31 @@ def main():
     except Exception as e:
         problems.append(f"oracle /health unreachable: {str(e)[:50]}")
 
+    # 3b) nightly-job freshness — a job can die at python STARTUP (2026-07-16:
+    # transient TCC denial killed the 04:00 conformal refit instantly; in-script
+    # alerting never ran and this healthcheck stayed green). Check each job's
+    # OUTPUT artifact instead of trusting silence.
+    try:
+        import json
+        X402 = os.path.expanduser("~/Documents/undesirables-x402-server")
+        fit = json.load(open(os.path.join(X402, "conformal_offsets.json"))).get("fit_date", "")
+        log(f"  conformal offsets fit_date: {fit}")
+        if fit < TODAY.isoformat():        # 04:00 refit ran before this 07:00 check
+            problems.append(f"conformal refit MISSED: offsets fit_date={fit} (expected {TODAY})")
+    except Exception as e:
+        problems.append(f"conformal offsets unreadable: {str(e)[:50]}")
+    for label, path, max_h in (
+        ("preimage backup (05:20)", os.path.expanduser("~/logs/backup_preimages.log"), 26),
+        ("ACI adjust weights (05:25)", os.path.join(os.path.expanduser("~/Documents/undesirables-x402-server"), "aci_adjust.json"), 26),
+    ):
+        try:
+            age_h = (datetime.now() - datetime.fromtimestamp(os.path.getmtime(path))).total_seconds() / 3600
+            log(f"  {label}: artifact touched {age_h:.1f}h ago")
+            if age_h > max_h:
+                problems.append(f"{label} STALE: artifact {age_h:.0f}h old (max {max_h}h)")
+        except OSError as e:
+            problems.append(f"{label} artifact missing: {str(e)[:40]}")
+
     # 4) Bazaar 30-day recency filter (x402 market research 2026-07-14):
     # resources with no settled payment in 30d are silently DROPPED from the
     # CDP Bazaar index. AUTHORITATIVE clock = the Bazaar's own
