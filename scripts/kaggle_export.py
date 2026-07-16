@@ -145,9 +145,13 @@ def write_metadata(output_dir: Path, total_products: int, total_history: int,
             f"card rarity, plus drift and volatility statistics. "
             f"Updated daily from TCGCSV archives."
         ),
+        # Kaggle tags must come from Kaggle's own taxonomy — free-form keywords
+        # (tcg, pokemon, time-series, ...) are rejected on every push ("not
+        # valid tags", seen 2026-07-16). "finance" was the only survivor of the
+        # old list; the rest below are standard Kaggle category tags.
         "keywords": [
-            "tcg", "trading-cards", "pokemon", "magic-the-gathering",
-            "yu-gi-oh", "market-prices", "time-series", "finance"
+            "finance", "games", "card games", "time series analysis",
+            "economics", "investing"
         ],
         "resources": [
             {
