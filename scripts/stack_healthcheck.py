@@ -143,6 +143,9 @@ def main():
         ("Mantle oracle v2 (hourly)", "~/logs/mantle_updater_v2.log", 2, ("Confirmed", "Done")),
         ("Mantle merkle (hourly)", "~/logs/mantle_merkle_updater.log", 2, ("Done",)),
         ("Casper merkle (hourly)", "~/logs/casper_merkle_updater.log", 2, ("deploy_hash",)),
+        ("LitVM price merkle (hourly)", "~/logs/merkle_updater.log", 2, ("Done",)),
+        ("Mantle weather (hourly)", "~/logs/mantle_weather.log", 2, ("Done.",)),
+        ("Weather worker predictions (hourly)", "~/logs/oracle_worker.log", 2, ()),  # mtime-only: quiet runs log nothing distinctive
     ):
         p = os.path.expanduser(path)
         try:
@@ -150,7 +153,7 @@ def main():
             with open(p, "rb") as f:
                 f.seek(max(0, os.path.getsize(p) - 4000))
                 tail = f.read().decode("utf-8", "replace")
-            ok = age_h <= max_h and any(m in tail for m in ok_markers)
+            ok = age_h <= max_h and (not ok_markers or any(m in tail for m in ok_markers))
             log(f"  {label}: {'OK' if ok else 'PROBLEM'} (log {age_h:.1f}h old)")
             if not ok:
                 problems.append(f"{label}: log {age_h:.1f}h old / no success marker in tail — check {path}")
@@ -187,6 +190,16 @@ def main():
             problems.append(f"Casper wallet LOW: {cspr:,.0f} CSPR (~{cspr/123:.0f} days left) — top up from the testnet faucet")
     except Exception as e:
         problems.append(f"Casper balance check failed: {str(e)[:50]}")
+
+    # forecast_feed.json — the FREE board the site + agents consume (04:50 cron)
+    try:
+        ff = os.path.join(os.path.expanduser("~/Documents/undesirables-x402-server"), "forecast_feed.json")
+        age_h = (datetime.now() - datetime.fromtimestamp(os.path.getmtime(ff))).total_seconds() / 3600
+        log(f"  forecast feed (04:50): regenerated {age_h:.1f}h ago")
+        if age_h > 26:
+            problems.append(f"forecast feed STALE: {age_h:.0f}h old — site + free agents are serving old grades")
+    except OSError:
+        problems.append("forecast_feed.json missing")
 
     # preimage backup: the artifact is the backup REPO's latest commit
     try:
