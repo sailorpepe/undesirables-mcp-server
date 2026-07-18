@@ -133,6 +133,23 @@ def main():
                 problems.append(f"{label} STALE: artifact {age_h:.0f}h old (max {max_h}h)")
         except OSError as e:
             problems.append(f"{label} artifact missing: {str(e)[:40]}")
+    # Casper oracle wallet runway — ran dry unnoticed for 66 hourly pushes
+    # (~Jul 15-18); net cost ≈5.14 CSPR/push ≈123/day. Alert at <900 CSPR
+    # (~7 days) so a faucet top-up happens before the roots go stale.
+    try:
+        import json
+        req = urllib.request.Request("http://127.0.0.1:7777/rpc",
+            data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "query_balance",
+                "params": {"purse_identifier": {"main_purse_under_public_key":
+                    "0202e5e6d06926853408f5cbe3021c2245c67a864094ee2cb70a1687d086cd25655f"}}}).encode(),
+            headers={"Content-Type": "application/json"})
+        cspr = int(json.load(urllib.request.urlopen(req, timeout=15))["result"]["balance"]) / 1e9
+        log(f"  Casper oracle wallet: {cspr:,.0f} CSPR (~{cspr/123:.0f} days of hourly pushes)")
+        if cspr < 900:
+            problems.append(f"Casper wallet LOW: {cspr:,.0f} CSPR (~{cspr/123:.0f} days left) — top up from the testnet faucet")
+    except Exception as e:
+        problems.append(f"Casper balance check failed: {str(e)[:50]}")
+
     # preimage backup: the artifact is the backup REPO's latest commit
     try:
         import subprocess
