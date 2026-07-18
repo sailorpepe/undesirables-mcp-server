@@ -317,7 +317,7 @@ pip install litvm-tcg-oracle
 
 | Feature | Detail |
 |---------|--------|
-| **433K+ trading cards** | 13 games, 276K actively priced |
+| **446K+ trading cards** | 25+ games, 284K actively priced |
 | **13.5M+ price observations** | 60+ days of continuous data |
 | **On-chain Merkle proofs** | Trustless verification on LiteForge (Chain 4441) |
 | **Risk forecast** | Conformal-calibrated VaR/CVaR + Safe-Hold/Momentum grades (Monte Carlo opt-in) |
@@ -338,7 +338,7 @@ pip install litvm-tcg-oracle
 - **PyPI (MCP)**: [undesirables-mcp-server](https://pypi.org/project/undesirables-mcp-server/) (v1.1.8)
 - **PyPI (LitVM)**: [litvm-tcg-oracle](https://pypi.org/project/litvm-tcg-oracle/) (v1.0.3)
 - **npm**: [plugin-undesirables](https://npmjs.com/package/plugin-undesirables) (ElizaOS plugin, v2.5.0)
-- **Oracle API**: [oracle.the-undesirables.com](https://oracle.the-undesirables.com) (28 endpoints, x402 micropayments)
+- **Oracle API**: [oracle.the-undesirables.com](https://oracle.the-undesirables.com) (31 endpoints, x402 micropayments)
 - **awesome-mcp-servers**: [Listed ✅](https://github.com/punkpeye/awesome-mcp-servers) (85K+ ⭐)
 - **Glama**: [Verified ✅ 3.8/5](https://glama.ai/mcp/servers/sailorpepe/undesirables-mcp-server)
 - **ElizaOS Plugin**: [Official monorepo](https://github.com/elizaOS/eliza/tree/develop/plugins/plugin-undesirables)
