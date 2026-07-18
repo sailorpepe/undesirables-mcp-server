@@ -133,6 +133,44 @@ def main():
                 problems.append(f"{label} STALE: artifact {age_h:.0f}h old (max {max_h}h)")
         except OSError as e:
             problems.append(f"{label} artifact missing: {str(e)[:40]}")
+    # ── ON-CHAIN PUSHERS (added 2026-07-18 after the Casper wallet ran dry
+    # unnoticed for 66 hourly pushes — "all green" must include these).
+    # Rule: healthy iff the log was written recently AND its tail ends in the
+    # job's success marker (a failing job appends too, so mtime alone lies).
+    for label, path, max_h, ok_markers in (
+        ("LitVM oracle v2 (hourly)", "~/logs/litvm_updater_v2.log", 2, ("✅ Confirmed", "Done")),
+        ("Weather merkle (hourly)", "~/logs/weather_merkle_err.log", 2, ("Root committed", "Done.")),
+        ("Mantle oracle v2 (hourly)", "~/logs/mantle_updater_v2.log", 2, ("Confirmed", "Done")),
+        ("Mantle merkle (hourly)", "~/logs/mantle_merkle_updater.log", 2, ("Done",)),
+        ("Casper merkle (hourly)", "~/logs/casper_merkle_updater.log", 2, ("deploy_hash",)),
+    ):
+        p = os.path.expanduser(path)
+        try:
+            age_h = (datetime.now() - datetime.fromtimestamp(os.path.getmtime(p))).total_seconds() / 3600
+            with open(p, "rb") as f:
+                f.seek(max(0, os.path.getsize(p) - 4000))
+                tail = f.read().decode("utf-8", "replace")
+            ok = age_h <= max_h and any(m in tail for m in ok_markers)
+            log(f"  {label}: {'OK' if ok else 'PROBLEM'} (log {age_h:.1f}h old)")
+            if not ok:
+                problems.append(f"{label}: log {age_h:.1f}h old / no success marker in tail — check {path}")
+        except OSError:
+            problems.append(f"{label}: log missing ({path})")
+
+    # LitVM wallet runway (burn ≈0.00001/hr @ 0.01 gwei → years; cheap insurance)
+    try:
+        import json
+        req = urllib.request.Request("https://liteforge.rpc.caldera.xyz/http",
+            data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "eth_getBalance",
+                             "params": ["0x77B82Fe7ADD725017E106CFE6E26Dc8b37C93Fca", "latest"]}).encode(),
+            headers={"Content-Type": "application/json", "User-Agent": "undesirables-healthcheck/1.0"})
+        wei = int(json.load(urllib.request.urlopen(req, timeout=15))["result"], 16)
+        log(f"  LitVM pusher wallet: {wei/1e18:.4f} gas token")
+        if wei / 1e18 < 0.01:
+            problems.append(f"LitVM pusher wallet LOW: {wei/1e18:.4f} — top up before hourly pushes stall")
+    except Exception as e:
+        log(f"  LitVM balance check skipped ({str(e)[:40]})")
+
     # Casper oracle wallet runway — ran dry unnoticed for 66 hourly pushes
     # (~Jul 15-18); net cost ≈5.14 CSPR/push ≈123/day. Alert at <900 CSPR
     # (~7 days) so a faucet top-up happens before the roots go stale.
