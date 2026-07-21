@@ -436,7 +436,6 @@ if __name__ == "__main__":
     # binds — caught on the 2026-07-21 deploy before it reached the tunnel.
     mcp.settings.host = args.host
     mcp.settings.port = args.port
-    path = mcp.settings.streamable_http_path if args.transport == "streamable-http" else mcp.settings.sse_path
 
     print(f"🚀 TCG Oracle MCP Remote Server")
     print(f"   Transport: {args.transport}")
@@ -444,8 +443,38 @@ if __name__ == "__main__":
     print(f"   x402 Backend: {X402_BASE}")
     print(f"   Tools: 10 (search, market, grade, grade-or-not, simulate, card_forecast, trending, portfolio, recommend, accuracy)")
     print()
-    print(f"   Public URL: https://mcp.the-undesirables.com{path}")
-    print(f"   Perplexity: Settings → Connectors → + Custom → Remote")
-    print()
 
-    mcp.run(transport=args.transport)
+    if args.transport == "streamable-http":
+        # Serve the SAME app at BOTH "/" and "/mcp". The subdomain already says
+        # "mcp", so `mcp.the-undesirables.com/mcp` stutters — the clean root URL
+        # is what we publish. /mcp stays mounted because it is the SDK's default
+        # and some clients/directories probe it by convention; a dev who types it
+        # from habit must not get a 404.
+        import uvicorn
+
+        # App is rooted at "/" (the clean public URL). A tiny ASGI shim aliases
+        # /mcp and /mcp/ onto it. Nested Starlette Mounts don't work here: an
+        # exact "/mcp" yields an EMPTY sub-path rather than "/", so the inner
+        # route misses and 404s (and it would redirect a POST). Rewriting the
+        # path is unambiguous and keeps lifespan/websocket scopes untouched.
+        mcp.settings.streamable_http_path = "/"
+        inner = mcp.streamable_http_app()
+
+        class _AliasMcpPath:
+            def __init__(self, app):
+                self.app = app
+
+            async def __call__(self, scope, receive, send):
+                if scope.get("type") == "http" and scope.get("path") in ("/mcp", "/mcp/"):
+                    scope = dict(scope, path="/", raw_path=b"/")
+                await self.app(scope, receive, send)
+
+        app = _AliasMcpPath(inner)
+        print(f"   Public URL: https://{PUBLIC_HOST}        (alias: /mcp)")
+        print(f"   Perplexity: Settings → Connectors → + Custom → Remote")
+        print()
+        uvicorn.run(app, host=args.host, port=args.port)
+    else:
+        print(f"   Public URL: https://{PUBLIC_HOST}{mcp.settings.sse_path}")
+        print()
+        mcp.run(transport=args.transport)
