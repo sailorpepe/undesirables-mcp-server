@@ -44,6 +44,8 @@ X402_BASE = os.getenv("X402_BASE_URL", "https://oracle.the-undesirables.com")
 PORT = int(os.getenv("MCP_REMOTE_PORT", "8443"))
 TRANSPORT = os.getenv("MCP_REMOTE_TRANSPORT", "streamable-http")
 
+PUBLIC_HOST = os.getenv("MCP_PUBLIC_HOST", "mcp.the-undesirables.com")
+
 mcp = FastMCP(
     "TCG Oracle",
     instructions=(
@@ -55,19 +57,79 @@ mcp = FastMCP(
     ),
 )
 
+# DNS-rebinding protection stays ON; we just allowlist the public hostname.
+# Without this the MCP SDK rejects every tunnelled request with a bare
+# "Invalid Host header" (surfacing as HTTP 421 at the Cloudflare edge) because
+# allowed_hosts defaults to localhost only — caught on the 2026-07-21 deploy,
+# and invisible to any localhost test. MCP_PUBLIC_HOST overrides for other
+# deployments.
+from mcp.server.transport_security import TransportSecuritySettings  # noqa: E402
+
+mcp.settings.transport_security = TransportSecuritySettings(
+    enable_dns_rebinding_protection=True,
+    allowed_hosts=[PUBLIC_HOST, f"{PUBLIC_HOST}:*",
+                   "127.0.0.1:*", "localhost:*", "[::1]:*"],
+    allowed_origins=[f"https://{PUBLIC_HOST}", f"https://{PUBLIC_HOST}:*",
+                     "http://127.0.0.1:*", "http://localhost:*", "http://[::1]:*"],
+)
+
 
 # ---------------------------------------------------------------------------
 # Helper: Call x402 server endpoints
 # ---------------------------------------------------------------------------
+# The oracle's graceful-402 handler treats any "httpx"/"x402" User-Agent as an
+# SDK client and returns the RAW 402 — empty body, payment details only in the
+# header. httpx's default UA therefore made every paid tool surface a useless
+# `HTTP 402: {}` (caught on the 2026-07-21 deploy gate). We send our own UA so
+# we get the enriched guidance body, AND decode the payment-required envelope,
+# so an agent receives both a readable explanation and the machine-readable
+# accepts[] it needs to settle and retry. No signup, no auth — that's the pitch.
+_UA = {"User-Agent": "undesirables-mcp-remote/1.0"}
+
+
+def _decode_payment_required(resp) -> dict:
+    import base64
+    hdr = resp.headers.get("payment-required")
+    if not hdr:
+        return {}
+    try:
+        return json.loads(base64.b64decode(hdr + "=" * (-len(hdr) % 4)))
+    except Exception:
+        return {}
+
+
 def _call_x402(path: str, params: dict = None, method: str = "GET") -> dict:
-    """Call the local x402 server. Free endpoints don't need payment."""
+    """Call the oracle. Free endpoints answer directly; paid endpoints return a
+    structured payment_required payload the caller can act on."""
     try:
         url = f"{X402_BASE}{path}"
-        with httpx.Client(timeout=30.0) as client:
+        with httpx.Client(timeout=30.0, headers=_UA) as client:
             if method == "POST":
                 r = client.post(url, json=params or {})
             else:
                 r = client.get(url, params=params or {})
+            if r.status_code == 402:
+                env = _decode_payment_required(r)
+                try:
+                    guidance = r.json()
+                except Exception:
+                    guidance = {}
+                acc = (env.get("accepts") or [{}])[0]
+                return {
+                    "status": "payment_required",
+                    "tool": guidance.get("tool"),
+                    "price": guidance.get("price"),
+                    "network": acc.get("network") or guidance.get("network"),
+                    "asset": guidance.get("asset"),
+                    "pay_to": acc.get("payTo") or guidance.get("payment_address"),
+                    "amount": acc.get("amount"),
+                    "how_to_pay": guidance.get("how_to_pay"),
+                    "free_preview": guidance.get("free_preview"),
+                    "x402": {k: env[k] for k in ("x402Version", "accepts", "resource") if k in env},
+                    "note": ("This tool is pay-per-call over x402. Settle the payment above "
+                             "with a funded wallet, then call again with the payment proof. "
+                             "No account or API key is required."),
+                }
             r.raise_for_status()
             return r.json()
     except httpx.HTTPStatusError as e:
@@ -274,31 +336,13 @@ def trending_cards(
 # ---------------------------------------------------------------------------
 # [TCG] Arbitrage Scanner — $0.15
 # ---------------------------------------------------------------------------
-@mcp.tool()
-def find_grading_arbitrage(
-    game: str = "Pokemon",
-    min_roi: float = 50.0,
-    min_raw_price: float = 5.0,
-    max_raw_price: float = 500.0,
-) -> dict:
-    """
-    Scans the TCG database for undervalued raw cards where professional
-    grading would produce ROI above your threshold. Estimates PSA grades
-    based on price tier and rarity, calculates expected graded values.
-
-    Returns ranked opportunities sorted by expected profit.
-
-    PAID: $0.15 USDC per call.
-
-    Use this when: a user asks "what cheap cards should I buy and grade
-    for profit?" or "find me undervalued cards to flip."
-    """
-    return _call_x402("/api/v1/arb-grade", {
-        "game": game,
-        "min_roi": min_roi,
-        "min_raw_price": min_raw_price,
-        "max_raw_price": max_raw_price,
-    })
+# NOTE (2026-07-21): find_grading_arbitrage was REMOVED before this endpoint
+# went public. It called /api/v1/arb-grade, which was deleted from the oracle on
+# 2026-07-18 (dead route, 404 — its stale references were pruned from the smoke
+# sweep, agent.json and tweet visuals that day). Advertising a tool that errors
+# on every call is the opposite of the one-URL-and-it-works pitch this endpoint
+# exists to deliver, so the tool count is 10, not 11. Use grade_or_not for the
+# per-card "should I grade this?" ROI verdict.
 
 
 # ---------------------------------------------------------------------------
@@ -387,14 +431,21 @@ if __name__ == "__main__":
     parser.add_argument("--host", default="0.0.0.0")
     args = parser.parse_args()
 
+    # mcp>=1.x FastMCP.run() takes only (transport, mount_path); host/port live
+    # on .settings. Passing them to run() raises TypeError and the server never
+    # binds — caught on the 2026-07-21 deploy before it reached the tunnel.
+    mcp.settings.host = args.host
+    mcp.settings.port = args.port
+    path = mcp.settings.streamable_http_path if args.transport == "streamable-http" else mcp.settings.sse_path
+
     print(f"🚀 TCG Oracle MCP Remote Server")
     print(f"   Transport: {args.transport}")
-    print(f"   Port: {args.port}")
+    print(f"   Bind: {args.host}:{args.port}")
     print(f"   x402 Backend: {X402_BASE}")
-    print(f"   Tools: 11 (search, market, grade, grade-or-not, simulate, card_forecast, trending, arb-grade, portfolio, recommend, accuracy)")
+    print(f"   Tools: 10 (search, market, grade, grade-or-not, simulate, card_forecast, trending, portfolio, recommend, accuracy)")
     print()
-    print(f"   Public URL: https://mcp.the-undesirables.com/{args.transport.replace('streamable-', '')}")
+    print(f"   Public URL: https://mcp.the-undesirables.com{path}")
     print(f"   Perplexity: Settings → Connectors → + Custom → Remote")
     print()
 
-    mcp.run(transport=args.transport, host=args.host, port=args.port)
+    mcp.run(transport=args.transport)
