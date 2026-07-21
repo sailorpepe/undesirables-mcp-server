@@ -149,11 +149,23 @@ def search_tcg_products(
 ) -> dict:
     """
     Search 446K+ TCG products across 25+ card games.
-    Returns card names, sets, and current market prices.
+    Returns card names and IDs, plus current market prices.
     FREE — no payment required.
 
     Use this when: a user asks about a specific card, wants to find cards,
     or needs current pricing for any trading card game product.
+
+    HOW TO SEARCH (important — this catalog matches on the CARD NAME only):
+      • Search the card name by itself: "Charizard", "Black Lotus", "Pikachu VMAX".
+      • Do NOT add the set or edition. "Base Set Charizard Holo" and
+        "Charizard 1st Edition" are set qualifiers; set names are not stored as
+        searchable text, so they narrow nothing and can only get in the way.
+      • Want a specific printing? Search the plain name, then pick it from the
+        results — variants appear as separate entries with their own product_id
+        (e.g. "Charizard ex", "Charizard (CE)").
+      • Got no results? Drop every word except the card name and try again.
+      • Pass the product_id from these results into the other tools (card_forecast,
+        grade_or_not, simulate_price) — that is exact and avoids re-searching.
     """
     params = {"query": query, "limit": min(limit, 50)}
     if game:
