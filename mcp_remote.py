@@ -435,6 +435,71 @@ def check_accuracy(game: str = "") -> dict:
 
 
 # ---------------------------------------------------------------------------
+# [SOULS] Wallet roster — FREE
+# ---------------------------------------------------------------------------
+@mcp.tool()
+def souls_in_wallet(address: str, calls: int = 5) -> dict:
+    """
+    Show every Undesirable soul a wallet holds, with each soul's public
+    prediction track record and its most recent calls.
+    FREE — no payment, no signature, no wallet connection required.
+
+    Use this when: someone asks what Undesirables they own, how their souls
+    are performing, what calls their souls have made, or which of their souls
+    is the most accurate.
+
+    HOW IT WORKS
+      • Ownership is read from Ethereum mainnet (ERC-721
+        0xA893648A701C03B14bF2FB767B72b2C55ed5c17A). Only the minted souls
+        1-273 have public records.
+      • Nothing here is private, so you can look up ANY address — the caller
+        does not have to prove they own it. Ask the user for their address.
+      • Each minted soul locks 3 card predictions weekly, chosen deterministically
+        from its on-chain personality traits. The oracle scores them 30 days later
+        against real market prices.
+
+    WHAT YOU GET BACK
+      • souls[]        — per soul: rating (A+..F / UNRATED), matured, hits,
+                         hit_rate, brier, open_calls, and recent_calls with each
+                         call's outcome (hit / miss / push)
+      • wallet_totals  — combined open + matured calls and overall hit rate
+      • best_soul      — the holder's most accurate soul, once any have matured
+
+    HOLDERS WITH SEVERAL SOULS: this is a roster. Offer to compare them, or to
+    speak as a specific one — each has different traits and its own record.
+
+    IMPORTANT — ratings mature on a schedule. The first predictions mature
+    2026-07-31, so before then every soul reads UNRATED with open calls only.
+    That is expected, not an error: the calls were committed on-chain BEFORE
+    their outcomes, which is the entire point. Say so rather than implying the
+    soul has no history.
+
+    Args:
+        address: 0x-prefixed EVM address to look up.
+        calls: recent scored calls to include per soul (0-12, default 5).
+    """
+    return _call_x402(f"/api/v1/soul-rating/wallet/{address}", {"calls": calls})
+
+
+@mcp.tool()
+def soul_calls(token_id: int) -> dict:
+    """
+    Full public record for ONE Undesirable soul: every open (locked) prediction
+    and its recent scored results.
+    FREE — no payment required.
+
+    Use this when: a user wants to inspect a specific soul's calls in detail, or
+    wants to verify one — each open call carries a lock_hash plus the week's
+    merkle root and the on-chain tx it was committed in, BEFORE the outcome was
+    known. That is what makes the record checkable rather than claimed.
+
+    Args:
+        token_id: minted soul, 1-273.
+    """
+    return _call_x402(f"/api/v1/soul-rating/{token_id}", {})
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
@@ -455,7 +520,7 @@ if __name__ == "__main__":
     print(f"   Transport: {args.transport}")
     print(f"   Bind: {args.host}:{args.port}")
     print(f"   x402 Backend: {X402_BASE}")
-    print(f"   Tools: 10 (search, market, grade, grade-or-not, simulate, card_forecast, trending, portfolio, recommend, accuracy)")
+    print(f"   Tools: 12 (search, market, grade, grade-or-not, simulate, card_forecast, trending, portfolio, recommend, accuracy, souls_in_wallet, soul_calls)")
     print()
 
     if args.transport == "streamable-http":
