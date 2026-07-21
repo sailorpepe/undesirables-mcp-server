@@ -155,17 +155,19 @@ def search_tcg_products(
     Use this when: a user asks about a specific card, wants to find cards,
     or needs current pricing for any trading card game product.
 
-    HOW TO SEARCH (important — this catalog matches on the CARD NAME only):
-      • Search the card name by itself: "Charizard", "Black Lotus", "Pikachu VMAX".
-      • Do NOT add the set or edition. "Base Set Charizard Holo" and
-        "Charizard 1st Edition" are set qualifiers; set names are not stored as
-        searchable text, so they narrow nothing and can only get in the way.
-      • Want a specific printing? Search the plain name, then pick it from the
-        results — variants appear as separate entries with their own product_id
-        (e.g. "Charizard ex", "Charizard (CE)").
-      • Got no results? Drop every word except the card name and try again.
-      • Pass the product_id from these results into the other tools (card_forecast,
-        grade_or_not, simulate_price) — that is exact and avoids re-searching.
+    HOW TO SEARCH (card name AND set name are both searchable):
+      • Card name alone casts the widest net: "Charizard", "Black Lotus".
+      • Add the SET to pin down a printing: "Base Set Charizard" returns the
+        Base Set, Base Set 2 and Shadowless Charizards as separate entries.
+        This matters — printings of the "same" card differ wildly in value.
+      • Every result carries a "set" field. Use it to choose, then pass that
+        result's product_id to the other tools (card_forecast, grade_or_not,
+        simulate_price) — exact, and avoids re-searching.
+      • Do NOT include rarity or condition words: "Holo", "1st Edition",
+        "Shadowless", "PSA 10" are not indexed and will sink an otherwise-good
+        query. "Base Set Charizard Holo" → drop "Holo".
+      • Got nothing? Remove the rarity words first, then fall back to the plain
+        card name.
     """
     params = {"query": query, "limit": min(limit, 50)}
     if game:
