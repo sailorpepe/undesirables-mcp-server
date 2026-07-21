@@ -191,6 +191,35 @@ def main():
     except Exception as e:
         problems.append(f"Casper balance check failed: {str(e)[:50]}")
 
+    # ── INDEXABILITY (weekly, Mondays) — the CDP validator is the AUTHORITY on
+    # whether the Bazaar will index us. It returned valid=false on 2026-07-14
+    # while every internal view looked fine (graceful-402 was dropping the
+    # payment-required header for non-SDK UAs) and cost us weeks of invisibility.
+    # An internal check proves what we EMIT; only this proves we're INDEXABLE.
+    # Alarms only on an explicit valid=false / failed check — an unreachable CDP
+    # is logged and skipped so their outage never becomes our false alarm.
+    if TODAY.weekday() == 0:
+        try:
+            import json
+            req = urllib.request.Request(
+                "https://api.cdp.coinbase.com/platform/v2/x402/validate",
+                data=json.dumps({"resource": "https://oracle.the-undesirables.com/api/v1/simulate"}).encode(),
+                headers={"Content-Type": "application/json", "User-Agent": "undesirables-healthcheck/1.0"})
+            v = json.load(urllib.request.urlopen(req, timeout=45))
+            pf = v.get("preflight") or []
+            failed = [c.get("check") for c in pf if not c.get("passed")]
+            active = (v.get("index") or {}).get("active")
+            log(f"  CDP indexability (weekly): valid={v.get('valid')} "
+                f"preflight={sum(1 for c in pf if c.get('passed'))}/{len(pf)} index.active={active}")
+            if not v.get("valid"):
+                problems.append(f"CDP validator says NOT INDEXABLE (valid=false) — failed: {failed[:4]}")
+            elif failed:
+                problems.append(f"CDP validator preflight failures: {failed[:4]}")
+            elif active is False:
+                problems.append("CDP validator: index.active=false — we are dropped from the Bazaar index")
+        except Exception as e:
+            log(f"  CDP indexability: skipped (validator unreachable: {str(e)[:50]})")
+
     # forecast_feed.json — the FREE board the site + agents consume (04:50 cron)
     try:
         ff = os.path.join(os.path.expanduser("~/Documents/undesirables-x402-server"), "forecast_feed.json")
