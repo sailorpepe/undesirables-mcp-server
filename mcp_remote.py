@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-TCG Oracle — Remote MCP Server (SSE Transport)
-===============================================
+TCG Oracle — Remote MCP Server (Streamable HTTP)
+================================================
+Public endpoint: https://mcp.the-undesirables.com/mcp
 Lightweight remote wrapper that exposes the top TCG Oracle tools over
 HTTPS + SSE transport for remote MCP clients:
 
@@ -16,15 +17,19 @@ This is a PROXY — it calls into the x402 server's internal MCP bridge
 or directly into the tool functions, then returns results over SSE.
 
 Usage:
-    python mcp_remote.py                       # Start SSE on port 8443
+    python mcp_remote.py                       # Streamable HTTP on port 8443
     python mcp_remote.py --port 9000           # Custom port
-    python mcp_remote.py --transport streamable-http  # Modern transport
+    python mcp_remote.py --transport sse       # Legacy SSE (deprecated transport)
 
-Perplexity Setup:
-    Settings → Connectors → + Custom Connector → Remote
-    URL: https://your-domain.com/sse
-    Transport: SSE
-    Auth: None (or API key if configured)
+Client setup (one URL, no install):
+    Claude Desktop / Cursor / Windsurf / VS Code:
+        add an MCP server with URL https://mcp.the-undesirables.com/mcp
+    Perplexity:
+        Settings → Connectors → + Custom Connector → Remote
+        URL: https://mcp.the-undesirables.com/mcp
+    Auth: none. Free tools answer immediately; paid tools return an x402
+    402 with payment details, so an agent with a funded wallet can settle
+    and retry without any signup.
 """
 
 import os
@@ -37,13 +42,13 @@ from mcp.server.fastmcp import FastMCP
 # ---------------------------------------------------------------------------
 X402_BASE = os.getenv("X402_BASE_URL", "https://oracle.the-undesirables.com")
 PORT = int(os.getenv("MCP_REMOTE_PORT", "8443"))
-TRANSPORT = os.getenv("MCP_REMOTE_TRANSPORT", "sse")
+TRANSPORT = os.getenv("MCP_REMOTE_TRANSPORT", "streamable-http")
 
 mcp = FastMCP(
     "TCG Oracle",
     instructions=(
         "Financial intelligence API for the $50B+ trading card market. "
-        "Search 427K+ products across 13 games, grade card images with AI, "
+        "Search 446K+ products across 25+ games, grade card images with AI, "
         "forecast prices with a conformal-calibrated risk model (Monte Carlo opt-in), and get ROI verdicts "
         "on whether to send cards for professional grading. "
         "All data comes from TCGCSV daily market snapshots and real-time analysis."
@@ -81,7 +86,7 @@ def search_tcg_products(
     limit: int = 10,
 ) -> dict:
     """
-    Search 427K+ TCG products across 13 card games.
+    Search 446K+ TCG products across 25+ card games.
     Returns card names, sets, and current market prices.
     FREE — no payment required.
 
@@ -388,8 +393,8 @@ if __name__ == "__main__":
     print(f"   x402 Backend: {X402_BASE}")
     print(f"   Tools: 11 (search, market, grade, grade-or-not, simulate, card_forecast, trending, arb-grade, portfolio, recommend, accuracy)")
     print()
+    print(f"   Public URL: https://mcp.the-undesirables.com/{args.transport.replace('streamable-', '')}")
     print(f"   Perplexity: Settings → Connectors → + Custom → Remote")
-    print(f"   URL: https://your-domain.com/{args.transport.replace('streamable-', '')}")
     print()
 
     mcp.run(transport=args.transport, host=args.host, port=args.port)
