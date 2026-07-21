@@ -220,6 +220,26 @@ def main():
         except Exception as e:
             log(f"  CDP indexability: skipped (validator unreachable: {str(e)[:50]})")
 
+    # Hosted MCP endpoint (mcp.the-undesirables.com, launchd com.undesirables.
+    # mcp-remote on :8443). Deliberately a SEPARATE failure domain from the paid
+    # oracle — so it needs its own check or it can die unnoticed. A plain GET
+    # returns 406 (MCP requires specific Accept headers); 406 or 200 means the
+    # tunnel + service are alive. 421 = the Invalid-Host-header regression.
+    try:
+        code = urllib.request.urlopen(
+            urllib.request.Request("https://mcp.the-undesirables.com/mcp",
+                                   headers={"User-Agent": "undesirables-healthcheck/1.0"}),
+            timeout=20).getcode()
+    except urllib.error.HTTPError as e:
+        code = e.code
+    except Exception as e:
+        code = None
+        problems.append(f"hosted MCP endpoint unreachable: {str(e)[:50]}")
+    if code is not None:
+        log(f"  hosted MCP endpoint: HTTP {code}")
+        if code not in (200, 406):
+            problems.append(f"hosted MCP endpoint returned {code} (expect 406/200; 421 = Invalid Host header)")
+
     # forecast_feed.json — the FREE board the site + agents consume (04:50 cron)
     try:
         ff = os.path.join(os.path.expanduser("~/Documents/undesirables-x402-server"), "forecast_feed.json")
