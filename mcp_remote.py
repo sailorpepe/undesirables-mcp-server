@@ -474,13 +474,57 @@ if __name__ == "__main__":
         mcp.settings.streamable_http_path = "/"
         inner = mcp.streamable_http_app()
 
+        # A human in a browser gets a cryptic protocol error here, because MCP
+        # requires Accept: text/event-stream and browsers never send it. The
+        # whole pitch is "paste one URL", and the dev post links this — so a
+        # visitor concluding "it's broken" is a real cost. Browsers get a page
+        # explaining what this is; MCP clients are never touched (they always
+        # send text/event-stream, which we detect and pass straight through).
+        _LANDING = f"""<!doctype html><meta charset=utf-8>
+<title>TCG Oracle — MCP endpoint</title>
+<style>body{{background:#0a0a10;color:#eaeaf5;font:16px/1.6 ui-monospace,Menlo,monospace;
+max-width:46rem;margin:6vh auto;padding:0 1.25rem}}h1{{color:#ff14a0;font-size:1.5rem}}
+code,pre{{background:#16161e;border:1px solid #2d2d3c;border-radius:6px}}
+code{{padding:.15em .4em}}pre{{padding:1rem;overflow-x:auto}}a{{color:#00dcff}}
+.n{{color:#8a8a9e}}</style>
+<h1>TCG Oracle — MCP endpoint</h1>
+<p>This URL is a <b>Model Context Protocol</b> server, not a web page. You are
+seeing this because a browser can't speak MCP — that's expected, and the endpoint
+is working.</p>
+<p>Add it to an MCP client (Claude Desktop, Cursor, Windsurf, VS Code, Perplexity):</p>
+<pre>https://{PUBLIC_HOST}</pre>
+<p class=n>No install. No API key. No account.</p>
+<p>You get {len(mcp._tool_manager.list_tools())} tools over 446K+ trading-card products across 25+ games:
+free search, market snapshots, price forecasts and accuracy stats; paid tools
+(AI card grading, conformal risk forecasts, portfolio optimisation) answer with an
+x402 payment request in USDC on Base, so a funded agent can settle and retry —
+still no signup.</p>
+<p><a href="https://oracle.the-undesirables.com/docs">REST API docs</a> ·
+<a href="https://the-undesirables.com">the-undesirables.com</a></p>"""
+
         class _AliasMcpPath:
             def __init__(self, app):
                 self.app = app
 
             async def __call__(self, scope, receive, send):
-                if scope.get("type") == "http" and scope.get("path") in ("/mcp", "/mcp/"):
-                    scope = dict(scope, path="/", raw_path=b"/")
+                if scope.get("type") == "http":
+                    if scope.get("path") in ("/mcp", "/mcp/"):
+                        scope = dict(scope, path="/", raw_path=b"/")
+                    accept = b""
+                    for k, v in scope.get("headers") or []:
+                        if k == b"accept":
+                            accept = v
+                            break
+                    # Browser = asks for HTML and does NOT speak the MCP stream.
+                    if (scope.get("method") == "GET"
+                            and b"text/html" in accept
+                            and b"text/event-stream" not in accept):
+                        body = _LANDING.encode()
+                        await send({"type": "http.response.start", "status": 200,
+                                    "headers": [(b"content-type", b"text/html; charset=utf-8"),
+                                                (b"content-length", str(len(body)).encode())]})
+                        await send({"type": "http.response.body", "body": body})
+                        return
                 await self.app(scope, receive, send)
 
         app = _AliasMcpPath(inner)
