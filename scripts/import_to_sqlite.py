@@ -43,9 +43,19 @@ def init_db(conn):
     conn.execute("""
         CREATE TABLE IF NOT EXISTS cards (
             product_id INTEGER PRIMARY KEY,
-            name TEXT, clean_name TEXT, rarity TEXT, category_id INTEGER, group_id INTEGER
+            name TEXT, clean_name TEXT, rarity TEXT, category_id INTEGER,
+            group_id INTEGER, group_name TEXT, image_url TEXT
         )
     """)
+    # CREATE TABLE IF NOT EXISTS never alters a table that already exists, so a
+    # column added here silently never reached the live DB — that is exactly how
+    # group_id sat in this schema for months while the real table lacked it and
+    # set search was impossible (fixed 2026-07-21). Self-heal explicitly.
+    have = {r[1] for r in conn.execute("PRAGMA table_info(cards)")}
+    for col, typ in (("group_id", "INTEGER"), ("group_name", "TEXT"), ("image_url", "TEXT")):
+        if col not in have:
+            conn.execute(f"ALTER TABLE cards ADD COLUMN {col} {typ}")
+            logger.info(f"  schema self-heal: added cards.{col}")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS price_history (
             product_id INTEGER, market_price REAL, low_price REAL,
@@ -196,6 +206,7 @@ def populate_cards_from_prices(conn):
     logger.info("Scanning price files for product IDs...")
     product_categories = {}  # {product_id: category_id}
     groups_by_category = {}  # {category_id: set(group_id)}
+    pid_group = {}           # {product_id: group_id} — the set a card belongs to
 
     for prices_file in HISTORY_DIR.rglob("prices"):
         parts = prices_file.relative_to(HISTORY_DIR).parts
@@ -221,10 +232,39 @@ def populate_cards_from_prices(conn):
                 pid = int(row.get("productId", 0))
                 if pid > 0:
                     product_categories[pid] = cat_id
+                    pid_group.setdefault(pid, group_id)
         except Exception:
             continue
 
     logger.info(f"  Found {len(product_categories):,} unique product IDs across {len(groups_by_category)} categories")
+
+    # Set (group) NAMES — one cheap call per category. The set is what makes a
+    # printing identifiable ("Charizard" is meaningless; "Charizard / Base Set"
+    # is a specific card), and it is what users and agents actually search on.
+    group_names = {}   # {group_id: "Base Set"}
+    for cat_id in sorted(groups_by_category):
+        try:
+            req = urllib.request.Request(
+                f"https://tcgcsv.com/tcgplayer/{cat_id}/groups",
+                headers={"User-Agent": "Mozilla/5.0 TCGOracle/2.0", "Accept": "application/json"})
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                for g in (json.loads(resp.read()).get("results") or []):
+                    group_names[int(g["groupId"])] = g.get("name")
+            time.sleep(0.2)
+        except Exception:
+            continue
+    logger.info(f"  Fetched {len(group_names):,} set names")
+
+    # Backfill sets for cards that predate this column (no-op once populated).
+    stale = conn.execute("SELECT COUNT(*) FROM cards WHERE group_name IS NULL").fetchone()[0]
+    if stale and group_names:
+        conn.executemany(
+            "UPDATE cards SET group_id=?, group_name=? WHERE product_id=? AND group_name IS NULL",
+            [(g, group_names.get(g), pid) for pid, g in pid_group.items() if group_names.get(g)])
+        conn.commit()
+        fixed = stale - conn.execute("SELECT COUNT(*) FROM cards WHERE group_name IS NULL").fetchone()[0]
+        if fixed:
+            logger.info(f"  Backfilled sets for {fixed:,} cards")
 
     # Step 2: Find products missing from the cards table
     existing = {r[0] for r in conn.execute("SELECT product_id FROM cards").fetchall()}
@@ -271,8 +311,9 @@ def populate_cards_from_prices(conn):
                         rarity = next((e.get("value") for e in p.get("extendedData", [])
                                        if e.get("name") == "Rarity"), None)
                         conn.execute(
-                            "INSERT OR IGNORE INTO cards (product_id, name, clean_name, category_id, rarity) VALUES (?, ?, ?, ?, ?)",
-                            (pid, name, clean, cat_id, rarity)
+                            "INSERT OR IGNORE INTO cards (product_id, name, clean_name, category_id, rarity, group_id, group_name) "
+                            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            (pid, name, clean, cat_id, rarity, group_id, group_names.get(group_id))
                         )
                         named_count += 1
                         cat_missing.discard(pid)
@@ -284,11 +325,14 @@ def populate_cards_from_prices(conn):
 
         # Any remaining missing products — insert with just ID + category
         for pid in cat_missing:
-            unnamed_rows.append((pid, f"Product #{pid}", f"Product #{pid}", cat_id))
+            gid = pid_group.get(pid)
+            unnamed_rows.append((pid, f"Product #{pid}", f"Product #{pid}", cat_id,
+                                 gid, group_names.get(gid) if gid else None))
 
     if unnamed_rows:
         conn.executemany(
-            "INSERT OR IGNORE INTO cards (product_id, name, clean_name, category_id) VALUES (?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO cards (product_id, name, clean_name, category_id, group_id, group_name) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
             unnamed_rows
         )
 
