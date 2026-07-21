@@ -220,14 +220,15 @@ def main():
         except Exception as e:
             log(f"  CDP indexability: skipped (validator unreachable: {str(e)[:50]})")
 
-    # Hosted MCP endpoint (mcp.the-undesirables.com, launchd com.undesirables.
+    # Hosted MCP endpoint (https://mcp.the-undesirables.com — root URL; /mcp
+    # is an alias. launchd com.undesirables.
     # mcp-remote on :8443). Deliberately a SEPARATE failure domain from the paid
     # oracle — so it needs its own check or it can die unnoticed. A plain GET
     # returns 406 (MCP requires specific Accept headers); 406 or 200 means the
     # tunnel + service are alive. 421 = the Invalid-Host-header regression.
     try:
         code = urllib.request.urlopen(
-            urllib.request.Request("https://mcp.the-undesirables.com/mcp",
+            urllib.request.Request("https://mcp.the-undesirables.com",
                                    headers={"User-Agent": "undesirables-healthcheck/1.0"}),
             timeout=20).getcode()
     except urllib.error.HTTPError as e:
