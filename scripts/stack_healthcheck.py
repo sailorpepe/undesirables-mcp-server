@@ -232,6 +232,36 @@ def main():
         if code not in (200, 406):
             problems.append(f"hosted MCP endpoint returned {code} (expect 406/200; 421 = Invalid Host header)")
 
+    # ── PUBLISHED CLAIMS vs REALITY (added 2026-07-22) ──
+    # Every incident this month was an unverified claim outliving the code: the
+    # Kaggle dataset 3 weeks stale, /docs headlining a model we don't default to,
+    # "10 tools" after shipping 12, a hardcoded total_endpoints of 27 that was
+    # never right. Numbers we can DERIVE are now derived (the oracle root and the
+    # MCP landing page count themselves). This watches the ones that can't be —
+    # it compares what we ADVERTISE against what we actually serve, so drift
+    # pages us instead of being found by a human reading a file months later.
+    try:
+        import json
+        root = json.load(urllib.request.urlopen(urllib.request.Request(
+            "http://127.0.0.1:8402/", headers={"User-Agent": "Mozilla/5.0 healthcheck"}), timeout=20))
+        adv_total = root.get("total_endpoints")
+        adv_cards = root.get("total_products")
+        listed = len(root["endpoints"]["free"]) + len(root["endpoints"]["paid"])
+        live_cards = json.load(urllib.request.urlopen(
+            "http://127.0.0.1:8402/health", timeout=20)).get("total_cards")
+        log(f"  published claims: {adv_total} endpoints advertised / {listed} listed; "
+            f"{adv_cards:,} products advertised / {live_cards:,} live")
+        if adv_total != listed:
+            problems.append(f"claim drift: root advertises {adv_total} endpoints but lists {listed}")
+        # tolerate a day of DB growth; flag a real divergence
+        if adv_cards and live_cards and abs(adv_cards - live_cards) > 5000:
+            problems.append(f"claim drift: advertises {adv_cards:,} products, DB has {live_cards:,}")
+        tag = root.get("tagline", "")
+        if adv_cards and f"{adv_cards // 1000}K" not in tag:
+            problems.append(f"claim drift: tagline card count disagrees with {adv_cards:,}")
+    except Exception as e:
+        problems.append(f"published-claims check failed: {str(e)[:50]}")
+
     # forecast_feed.json — the FREE board the site + agents consume (04:50 cron)
     try:
         ff = os.path.join(os.path.expanduser("~/Documents/undesirables-x402-server"), "forecast_feed.json")
