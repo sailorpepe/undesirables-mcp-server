@@ -259,6 +259,32 @@ def main():
         tag = root.get("tagline", "")
         if adv_cards and f"{adv_cards // 1000}K" not in tag:
             problems.append(f"claim drift: tagline card count disagrees with {adv_cards:,}")
+
+        # Cross-check the SITE against this server. The oracle can be perfectly
+        # self-consistent while the site advertises different numbers — that is
+        # exactly how "19 free endpoints" survived the 2026-07-22 sweep (I only
+        # checked the oracle's internal consistency; the Studio caught the site
+        # by hand). The site is a STATIC file that cannot compute, so it is the
+        # surface most likely to rot, and it is the one agents read first.
+        try:
+            site = urllib.request.urlopen(urllib.request.Request(
+                "https://the-undesirables.com/llms.txt",
+                headers={"User-Agent": "undesirables-healthcheck/1.0"}), timeout=25).read().decode("utf-8", "replace")
+            import re as _re
+            m_paid = _re.search(r"(\d+)\s+paid endpoints", site)
+            m_free = _re.search(r"(\d+)\s+free endpoints", site)
+            site_paid = int(m_paid.group(1)) if m_paid else None
+            site_free = int(m_free.group(1)) if m_free else None
+            log(f"  site llms.txt claims: {site_paid} paid / {site_free} free "
+                f"(oracle serves {len(root['endpoints']['paid'])} / {len(root['endpoints']['free'])})")
+            if site_paid is not None and site_paid != len(root["endpoints"]["paid"]):
+                problems.append(f"SITE claim drift: llms.txt says {site_paid} paid, oracle serves "
+                                f"{len(root['endpoints']['paid'])} — site fix (Studio/Vercel)")
+            if site_free is not None and site_free != len(root["endpoints"]["free"]):
+                problems.append(f"SITE claim drift: llms.txt says {site_free} free, oracle serves "
+                                f"{len(root['endpoints']['free'])} — site fix (Studio/Vercel)")
+        except Exception as e:
+            log(f"  site claims cross-check skipped ({str(e)[:40]})")
     except Exception as e:
         problems.append(f"published-claims check failed: {str(e)[:50]}")
 
