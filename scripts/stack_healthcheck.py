@@ -133,6 +133,11 @@ def main():
                 problems.append(f"{label} STALE: artifact {age_h:.0f}h old (max {max_h}h)")
         except OSError as e:
             problems.append(f"{label} artifact missing: {str(e)[:40]}")
+    # Mantle + Casper pushers were REMOVED from this list 2026-07-21 when their
+    # crons were disabled — the DoraHacks competition they were built for ended.
+    # Dropping the jobs without dropping their checks would have traded four
+    # silent jobs for a nightly false alarm, which is strictly worse. LitVM
+    # stays: LiteForge is the live chain.
     # ── ON-CHAIN PUSHERS (added 2026-07-18 after the Casper wallet ran dry
     # unnoticed for 66 hourly pushes — "all green" must include these).
     # Rule: healthy iff the log was written recently AND its tail ends in the
@@ -140,11 +145,7 @@ def main():
     for label, path, max_h, ok_markers in (
         ("LitVM oracle v2 (hourly)", "~/logs/litvm_updater_v2.log", 2, ("✅ Confirmed", "Done")),
         ("Weather merkle (hourly)", "~/logs/weather_merkle_err.log", 2, ("Root committed", "Done.")),
-        ("Mantle oracle v2 (hourly)", "~/logs/mantle_updater_v2.log", 2, ("Confirmed", "Done")),
-        ("Mantle merkle (hourly)", "~/logs/mantle_merkle_updater.log", 2, ("Done",)),
-        ("Casper merkle (hourly)", "~/logs/casper_merkle_updater.log", 2, ("deploy_hash",)),
         ("LitVM price merkle (hourly)", "~/logs/merkle_updater.log", 2, ("Done",)),
-        ("Mantle weather (hourly)", "~/logs/mantle_weather.log", 2, ("Done.",)),
         ("Weather worker predictions (hourly)", "~/logs/oracle_worker.log", 2, ()),  # mtime-only: quiet runs log nothing distinctive
     ):
         p = os.path.expanduser(path)
@@ -174,22 +175,12 @@ def main():
     except Exception as e:
         log(f"  LitVM balance check skipped ({str(e)[:40]})")
 
-    # Casper oracle wallet runway — ran dry unnoticed for 66 hourly pushes
-    # (~Jul 15-18); net cost ≈5.14 CSPR/push ≈123/day. Alert at <900 CSPR
-    # (~7 days) so a faucet top-up happens before the roots go stale.
-    try:
-        import json
-        req = urllib.request.Request("http://127.0.0.1:7777/rpc",
-            data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "query_balance",
-                "params": {"purse_identifier": {"main_purse_under_public_key":
-                    "0202e5e6d06926853408f5cbe3021c2245c67a864094ee2cb70a1687d086cd25655f"}}}).encode(),
-            headers={"Content-Type": "application/json"})
-        cspr = int(json.load(urllib.request.urlopen(req, timeout=15))["result"]["balance"]) / 1e9
-        log(f"  Casper oracle wallet: {cspr:,.0f} CSPR (~{cspr/123:.0f} days of hourly pushes)")
-        if cspr < 900:
-            problems.append(f"Casper wallet LOW: {cspr:,.0f} CSPR (~{cspr/123:.0f} days left) — top up from the testnet faucet")
-    except Exception as e:
-        problems.append(f"Casper balance check failed: {str(e)[:50]}")
+    # Casper wallet-runway check REMOVED 2026-07-21 with the wind-down: it
+    # queried the local casper-proxy on :7777, which is now unloaded, so it
+    # alarmed the moment the proxy stopped — exactly the false alarm this
+    # change existed to avoid. Nothing is pushing to Casper any more, so
+    # there is no runway to protect. (Kept for history: the wallet ran dry
+    # unnoticed for 66 pushes ~Jul 15-18 at ~5.14 CSPR/push.)
 
     # ── INDEXABILITY (weekly, Mondays) — the CDP validator is the AUTHORITY on
     # whether the Bazaar will index us. It returned valid=false on 2026-07-14
