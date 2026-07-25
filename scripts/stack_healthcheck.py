@@ -288,6 +288,28 @@ def main():
     except Exception as e:
         problems.append(f"published-claims check failed: {str(e)[:50]}")
 
+    # PSA population enrichment (launchd com.mememerchants.psa-population, 05:30).
+    # Added 2026-07-24: the PSA API began returning 403 on EVERY call that day and
+    # nothing noticed — this job had zero observer coverage, so a dead credential
+    # would have burned the daily run indefinitely. Alarms only on the auth
+    # failure (actionable: renew the token/subscription). Deliberately does NOT
+    # alarm on "0 cards enriched": that is a separate, known design weakness —
+    # cert numbers are scraped from eBay listing titles and usually absent — and
+    # alarming on it would be constant noise until the strategy is reworked.
+    try:
+        psa_log = os.path.expanduser("~/logs/psa_population.log")
+        with open(psa_log, "rb") as f:
+            f.seek(max(0, os.path.getsize(psa_log) - 20000))
+            tail = f.read().decode("utf-8", "replace")
+        today_lines = [l for l in tail.splitlines() if TODAY.isoformat() in l]
+        forbidden = sum(1 for l in today_lines if "403" in l)
+        log(f"  PSA population: {len(today_lines)} log lines today, {forbidden} auth failure(s)")
+        if forbidden:
+            problems.append(f"PSA API auth FAILING: {forbidden}x HTTP 403 today — "
+                            f"PSA_API_TOKEN expired/revoked, renew at api.psacard.com")
+    except OSError:
+        log("  PSA population: log not found (job may not have run)")
+
     # forecast_feed.json — the FREE board the site + agents consume (04:50 cron)
     try:
         ff = os.path.join(os.path.expanduser("~/Documents/undesirables-x402-server"), "forecast_feed.json")
