@@ -9,7 +9,9 @@
 [![License: BSL-1.1](https://img.shields.io/badge/License-BSL_1.1-orange.svg?style=flat-square)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/undesirables-mcp-server.svg?style=flat-square)](https://pypi.org/project/undesirables-mcp-server/)
 
-**35+ local compute tools for AI agents — zero cloud dependency**
+**35+ local compute tools for AI agents — plus a hosted, conformal-calibrated pricing oracle**
+
+*Run it fully local with zero cloud dependency, or connect to the hosted endpoint at `mcp.the-undesirables.com` — pay-per-call in USDC, no account or API key.*
 
 [Website](https://the-undesirables.com) · [Docs](https://the-undesirables.com/docs) · [PyPI](https://pypi.org/project/undesirables-mcp-server/) · [𝕏](https://x.com/undesirables_ai)
 
