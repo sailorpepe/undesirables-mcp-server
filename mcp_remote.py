@@ -55,6 +55,10 @@ mcp = FastMCP(
         "on whether to send cards for professional grading. "
         "All data comes from TCGCSV daily market snapshots and real-time analysis."
     ),
+    # Surfaced on directory listing cards (Smithery scans this over the wire).
+    # FastMCP exposes no `version` kwarg, so serverInfo.version reports the mcp
+    # library version rather than ours — cosmetic, and not worth patching around.
+    website_url="https://oracle.the-undesirables.com",
 )
 
 # DNS-rebinding protection stays ON; we just allowlist the public hostname.
