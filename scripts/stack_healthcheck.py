@@ -305,8 +305,9 @@ def main():
         forbidden = sum(1 for l in today_lines if "403" in l)
         log(f"  PSA population: {len(today_lines)} log lines today, {forbidden} auth failure(s)")
         if forbidden:
-            problems.append(f"PSA API auth FAILING: {forbidden}x HTTP 403 today — "
-                            f"PSA_API_TOKEN expired/revoked, renew at api.psacard.com")
+            problems.append(f"PSA API access REVOKED: {forbidden}x HTTP 403 today — PSA returns "
+                            f"'Access to this API is limited to approved customers'. The token is "
+                            f"valid (worked 2026-07-23); this is an ACCOUNT approval issue, contact PSA.")
     except OSError:
         log("  PSA population: log not found (job may not have run)")
 
