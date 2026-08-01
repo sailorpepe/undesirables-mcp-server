@@ -52,6 +52,15 @@ def days_old(datestr):
     return (TODAY - d).days
 
 
+# 2026-07-28: set NO_PAGE=1 when deliberately triggering an alarm to verify it
+# fires. On 07-28 I tested the ownership alarm by corrupting its baseline and
+# sent sailorpepe two high-priority pages saying his signing key might be
+# compromised and his contracts might already be lost. Nothing was wrong. An
+# alarm that cannot be exercised without paging a human will either go untested
+# or train him to ignore the phone; both are worse than the bug it watches for.
+NO_PAGE = os.environ.get("NO_PAGE") == "1"
+
+
 def main():
     problems = []
 
@@ -93,8 +102,60 @@ def main():
         if uncommitted:
             problems.append(f"{uncommitted} weekly soul root(s) NOT committed on-chain")
         log(f"  soul roots on-chain: {sp.execute('SELECT COUNT(*) FROM merkle_roots').fetchone()[0]} committed, {uncommitted} pending")
+        # Base mirror (added 2026-07-27). LiteForge is a testnet: if it resets,
+        # the mainnet copy is the only surviving proof that a prediction preceded
+        # its outcome. A root sitting un-mirrored past the contract's 10-day
+        # window can NEVER be mirrored, so this is a deadline, not a nag.
+        try:
+            base_pending = sp.execute(
+                "SELECT as_of FROM merkle_roots WHERE base_tx_hash IS NULL "
+                "ORDER BY as_of").fetchall()
+            if base_pending:
+                ages = []
+                for (as_of,) in base_pending:
+                    age = (TODAY - date.fromisoformat(as_of)).days
+                    ages.append(f"{as_of} ({age}d, {10 - age}d left)"
+                                if age <= 10 else f"{as_of} (LOST, {age}d)")
+                problems.append(
+                    f"soul root(s) not mirrored to Base: {', '.join(ages)}. "
+                    f"Past 10 days the Base contract refuses them permanently — "
+                    f"run soul_predictions.py commit_onchain()")
+            else:
+                log("  soul Base mirror: all roots accounted for")
+        except Exception as e:
+            problems.append(f"soul Base mirror check FAILED: {str(e)[:60]}")
     except Exception as e:
         problems.append(f"soul_predictions unreadable: {str(e)[:50]}")
+
+    # 2b) price proof-tree Base mirror parity (contract deployed 2026-07-31).
+    # The 286K-product proof tree is what the public "hash it" story rests on;
+    # its Base twin exists precisely so a LiteForge reset can't erase it. The
+    # mirror leg in merkle_root_updater.py is deliberately non-blocking, so
+    # THIS is the check that catches silent drift. Base lagging LiteForge by
+    # one root (mirror tx failed once) is a warning; the updater's next push
+    # self-heals it — persistent mismatch means the mirror leg is broken.
+    try:
+        import json as _mj
+        from web3 import Web3 as _MW3
+        _mabi = _mj.load(open(os.path.join(X, "MerklePriceOracle_abi.json")))
+        _lf_addr = _mj.load(open(os.path.join(X, "merkle_deployment.json")))["contract_address"]
+        _ba_addr = _mj.load(open(os.path.join(X, "merkle_deployment_base.json")))["contract"]
+        _lfw = _MW3(_MW3.HTTPProvider("https://liteforge.rpc.caldera.xyz/http",
+                                      request_kwargs={"timeout": 30}))
+        _baw = _MW3(_MW3.HTTPProvider(
+            f"https://base-mainnet.g.alchemy.com/v2/{env('ALCHEMY_API_KEY')}",
+            request_kwargs={"timeout": 30}))
+        _lfr = _lfw.eth.contract(address=_lf_addr, abi=_mabi).functions.merkleRoot().call().hex()
+        _bar = _baw.eth.contract(address=_ba_addr, abi=_mabi).functions.merkleRoot().call().hex()
+        if _lfr == _bar:
+            log(f"  price proof-tree Base mirror: roots match ({_lfr[:14]}…)")
+        else:
+            problems.append(
+                f"price proof-tree MIRROR DRIFT: LiteForge {_lfr[:14]}… vs Base "
+                f"{_bar[:14]}… — check merkle_root_updater.py's Base leg "
+                f"(non-blocking by design, so it fails quiet)")
+    except Exception as e:
+        problems.append(f"price proof-tree Base mirror check FAILED: {str(e)[:60]}")
 
     # 3) oracle health endpoint
     try:
@@ -288,6 +349,63 @@ def main():
     except Exception as e:
         problems.append(f"published-claims check failed: {str(e)[:50]}")
 
+    # --- route table vs advertised surfaces --------------------------------
+    # 2026-07-30. GET /api/v1/wallet/portfolio was a LIVE route returning 200
+    # with no paywall, described in openapi as "$0.25", and present in NEITHER
+    # the root listing nor the x402 manifest. Three callers got it free.
+    #
+    # Every check above compares one advertised number against another
+    # advertised number, so a route missing from BOTH surfaces is invisible to
+    # all of them — the counts agreed with each other perfectly. The only
+    # witness that cannot be fooled is the app's own route table. This diffs
+    # openapi.json (what the app actually serves) against root + manifest (what
+    # we tell people we serve) and fails on a gap in either direction: a route
+    # we don't advertise, or an advertised path that isn't a route.
+    try:
+        import json
+        spec = json.load(urllib.request.urlopen(
+            "http://127.0.0.1:8402/openapi.json", timeout=25))
+        # /chart/{product_id}.png is advertised and real but sits outside
+        # /api/v1, so an /api/v1-only view of the route table reports it as a
+        # phantom. Take every documented path and subtract only the plumbing.
+        NOT_PRODUCT = {
+            "/api/v1/ebay/deletion",   # eBay's account-deletion compliance
+                                       # webhook — eBay calls it, nobody else
+                                       # should, and listing it invites noise
+        }
+        real = {p for p in spec["paths"]
+                if (p.startswith("/api/v1/") or p.startswith("/chart/"))
+                and p not in NOT_PRODUCT}
+
+        root = json.load(urllib.request.urlopen(urllib.request.Request(
+            "http://127.0.0.1:8402/", headers={"User-Agent": "Mozilla/5.0 healthcheck"}), timeout=20))
+        rooted = {e["path"] for e in root["endpoints"]["free"] + root["endpoints"]["paid"]}
+        paid_paths = {e["path"] for e in root["endpoints"]["paid"]}
+
+        man = json.load(urllib.request.urlopen(
+            "http://127.0.0.1:8402/.well-known/x402", timeout=20))
+        # resources are absolute URLs; compare on path only
+        from urllib.parse import urlparse
+        manifested = {urlparse(r["resource"]).path for r in man.get("resources", [])}
+
+        unadvertised = sorted(real - rooted)
+        if unadvertised:
+            problems.append(f"ROUTE GAP: {len(unadvertised)} live route(s) absent from root "
+                            f"listing — {', '.join(unadvertised[:4])}")
+        phantom = sorted(rooted - real)
+        if phantom:
+            problems.append(f"ROUTE GAP: root advertises {len(phantom)} path(s) that are not "
+                            f"routes — {', '.join(phantom[:4])}")
+        unmanifested = sorted(paid_paths - manifested)
+        if unmanifested:
+            problems.append(f"ROUTE GAP: {len(unmanifested)} paid route(s) absent from the x402 "
+                            f"manifest — {', '.join(unmanifested[:4])}")
+        log(f"  route table: {len(real)} live /api/v1 routes, {len(rooted)} in root, "
+            f"{len(manifested)} in manifest — {len(unadvertised)} unadvertised, "
+            f"{len(phantom)} phantom, {len(unmanifested)} unmanifested")
+    except Exception as e:
+        problems.append(f"route-table diff failed: {str(e)[:60]}")
+
     # PSA population enrichment (launchd com.mememerchants.psa-population, 05:30).
     # Added 2026-07-24: the PSA API began returning 403 on EVERY call that day and
     # nothing noticed — this job had zero observer coverage, so a dead credential
@@ -304,12 +422,467 @@ def main():
         today_lines = [l for l in tail.splitlines() if TODAY.isoformat() in l]
         forbidden = sum(1 for l in today_lines if "403" in l)
         log(f"  PSA population: {len(today_lines)} log lines today, {forbidden} auth failure(s)")
+        # Alert-fatigue fix (2026-07-26, sailorpepe: "im still getting those psa
+        # messages"): this fired EVERY morning since Jul 24 for a known, external,
+        # unresolved condition — and its old wording ("token is valid, worked
+        # 2026-07-23") aged into nonsense. New policy: while the condition is
+        # UNCHANGED, remind on Mondays only; alert IMMEDIATELY the day PSA access
+        # comes back. State survives via a tiny JSON file.
+        import json as _json
+        psa_state_p = os.path.expanduser("~/.cache/psa_alert_state.json")
+        try:
+            with open(psa_state_p) as f:
+                psa_prev = _json.load(f).get("status")
+        except Exception:
+            psa_prev = None
+        # 2026-07-27 (sailorpepe: "its still talking about the psa api"): the
+        # Monday throttle was the WRONG fix — it reduced the frequency of noise
+        # instead of removing it. Alerts must fire on CHANGE, not on a state we
+        # already understand. PSA access is closed to everyone (proven with a
+        # brand-new account's fresh token), the slab census replaced it, and
+        # there is no action left to take. A recurring page for a permanent,
+        # mitigated, external condition just teaches us to ignore the phone —
+        # which is expensive the day a real alarm fires. So: LOG it, never page
+        # it. The 🎉 restoration branch below still pages immediately, because
+        # THAT is a change and it is actionable.
         if forbidden:
-            problems.append(f"PSA API access REVOKED: {forbidden}x HTTP 403 today — PSA returns "
-                            f"'Access to this API is limited to approved customers'. The token is "
-                            f"valid (worked 2026-07-23); this is an ACCOUNT approval issue, contact PSA.")
+            if psa_prev != "revoked":
+                problems.append(
+                    f"PSA public API now returning 403 ({forbidden}x today). "
+                    f"First detection of this state — investigate.")
+            else:
+                log(f"  PSA population: still closed ({forbidden}x 403) — known, "
+                    f"permanent, replaced by the slab census. Not alerting.")
+            psa_now = "revoked"
+        elif today_lines:
+            if psa_prev == "revoked":
+                problems.append("🎉 PSA API ACCESS RESTORED — the population job is "
+                                "authenticating again. Re-probe the spec endpoints and "
+                                "restart the pop-report rework discussion.")
+            psa_now = "ok"
+        else:
+            psa_now = psa_prev  # job didn't run; keep prior state
+        try:
+            os.makedirs(os.path.dirname(psa_state_p), exist_ok=True)
+            with open(psa_state_p, "w") as f:
+                _json.dump({"status": psa_now, "as_of": TODAY.isoformat()}, f)
+        except Exception:
+            pass
     except OSError:
         log("  PSA population: log not found (job may not have run)")
+
+    # Crypto/NFT calibration panel (daily_pipeline step 8, added 2026-07-24).
+    # This job's whole value is UNBROKEN daily accumulation: conformal needs >=120
+    # assets x >=60 days, and a gap doesn't just lose a row, it pushes the earliest
+    # possible calibration date back. A silent stall here would cost months before
+    # anyone noticed, which is exactly the failure mode we keep finding. So we alarm
+    # on staleness (>1 day since the newest row), not on row counts.
+    try:
+        con = ro(os.path.expanduser(
+            "~/Documents/undesirables-mcp-server/.cache/market_memory.sqlite"))
+        row = con.execute("SELECT MAX(date) FROM crypto_price_history").fetchone()
+        newest = row[0] if row else None
+        if not newest:
+            problems.append("crypto/NFT panel: table empty — the daily logger has never "
+                            "successfully run (blocks NFT/crypto conformal entirely).")
+        else:
+            age = days_old(newest)
+            stats = con.execute(
+                "SELECT kind, COUNT(DISTINCT asset_id), COUNT(DISTINCT date) "
+                "FROM crypto_price_history GROUP BY kind").fetchall()
+            desc = ", ".join(f"{k}: {a} assets x {d}d" for k, a, d in stats)
+            log(f"  crypto/NFT panel: newest {newest} ({age}d old) — {desc}")
+            if age is not None and age > 1:
+                problems.append(
+                    f"crypto/NFT panel STALE: newest row {newest} ({age}d old). Every "
+                    f"missed day delays NFT/crypto conformal by a day. Check "
+                    f"~/logs/crypto_logger.log and daily_pipeline step 8.")
+        con.close()
+    except Exception as e:
+        log(f"  crypto/NFT panel: check skipped ({str(e)[:60]})")
+
+    # Observed slab census (daily_pipeline step 9, added 2026-07-25). Same
+    # staleness logic as the crypto panel: the census is a supply TIME SERIES,
+    # so a silent stall costs history that cannot be backfilled. eBay throttling
+    # or a key problem would surface here as staleness.
+    try:
+        con = ro(os.path.expanduser(
+            "~/Documents/undesirables-mcp-server/.cache/market_memory.sqlite"))
+        row = con.execute("SELECT MAX(last_seen), COUNT(*), COUNT(DISTINCT cert_number),"
+                          " COUNT(DISTINCT product_id) FROM slab_census").fetchone()
+        newest, slabs, certs, cards = row if row else (None, 0, 0, 0)
+        if not newest:
+            log("  slab census: table empty (first pipeline run pending)")
+        else:
+            age = days_old(newest)
+            log(f"  slab census: newest {newest} ({age}d old) — {slabs} slabs, "
+                f"{certs} certs, {cards} cards")
+            if age is not None and age > 1:
+                problems.append(
+                    f"slab census STALE: newest sighting {newest} ({age}d old) — "
+                    f"supply history can't be backfilled. Check ~/logs/slab_census.log "
+                    f"and daily_pipeline step 9 (eBay 429s would show there).")
+        con.close()
+    except Exception as e:
+        log(f"  slab census: check skipped ({str(e)[:60]})")
+
+    # Soul grade print (soul_predictions.py --score, 05:10 daily). Added
+    # 2026-07-25 ahead of the FIRST maturity date 2026-07-31: 819 predictions
+    # mature that day and sailorpepe's LitVM follow-up cites the live numbers
+    # the same morning — a silent scoring failure collapses the send plan.
+    # This check runs at 07:00, after the 05:10 scorer.
+    # Dry-run baseline (clock-shifted, 2026-07-25): 774/819 score, 45 skip on
+    # missing prices (retry daily), ~81% hit rate ex-push, ~37% pushes.
+    try:
+        sdb = ro(os.path.expanduser(
+            "~/Documents/undesirables-x402-server/soul_predictions.sqlite"))
+        t = TODAY.isoformat()
+        due = sdb.execute("SELECT COUNT(*) FROM soul_predictions WHERE matures_on<=?",
+                          (t,)).fetchone()[0]
+        done = sdb.execute("SELECT COUNT(*) FROM soul_predictions WHERE scored=1").fetchone()[0]
+        backlog = sdb.execute("SELECT COUNT(*) FROM soul_predictions "
+                              "WHERE scored=0 AND matures_on<=?", (t,)).fetchone()[0]
+        sdb.close()
+        if due:
+            log(f"  soul grade print: {done} scored, {backlog} due-unscored (of {due} due)")
+            if done == 0:
+                problems.append(
+                    f"SOUL GRADE PRINT FAILED: {due} predictions matured but ZERO are "
+                    f"scored — the 05:10 soul_predictions.py --score run did not do its "
+                    f"job. The July-31 send plan cites these numbers. Check "
+                    f"~/logs/soul_predictions.log NOW.")
+            elif backlog > 80:   # ~10% of a weekly cohort — skip backlog is growing
+                problems.append(
+                    f"soul grade print: {backlog} matured predictions still unscored "
+                    f"(missing prices don't retry forever if products stay unpriced). "
+                    f"Dry-run baseline was 45 — investigate before it compounds.")
+        else:
+            log("  soul grade print: nothing matured yet (first cohort 2026-07-31)")
+    except Exception as e:
+        log(f"  soul grade print: check skipped ({str(e)[:60]})")
+
+    # Sports player-stat panel (daily_pipeline step 10, added 2026-07-27).
+    # Same logic as the crypto panel: the value is UNBROKEN accumulation, and a
+    # missed day is a day of season history that cannot be backfilled — MLB
+    # serves CURRENT season totals, not a historical daily series. Alarms on
+    # staleness only. In-season MLB runs Apr-Oct; off-season silence is normal
+    # and must not page, hence the >2 day threshold and the empty-table pass.
+    try:
+        con = ro(os.path.expanduser(
+            "~/Documents/undesirables-mcp-server/.cache/market_memory.sqlite"))
+        row = con.execute("SELECT MAX(date) FROM player_stats_history").fetchone()
+        newest = row[0] if row else None
+        if not newest:
+            log("  sports panel: table empty (first pipeline run pending)")
+        else:
+            age = days_old(newest)
+            stats = con.execute(
+                "SELECT league, COUNT(DISTINCT player_id), COUNT(DISTINCT date) "
+                "FROM player_stats_history GROUP BY league").fetchall()
+            desc = ", ".join(f"{lg}: {p} players x {d}d" for lg, p, d in stats)
+            log(f"  sports panel: newest {newest} ({age}d old) — {desc}")
+            if age is not None and age > 2:
+                problems.append(
+                    f"sports stat panel STALE: newest {newest} ({age}d old). Season "
+                    f"history can't be backfilled — MLB serves current totals only. "
+                    f"Check ~/logs/sports_stats.log and daily_pipeline step 10.")
+        con.close()
+    except Exception as e:
+        log(f"  sports panel: check skipped ({str(e)[:60]})")
+
+    # Sports Merkle commit lag (SportsStatsRegistry, chain 4441, added 2026-07-27).
+    # The failure this catches is SILENT and PERMANENT: step 10 keeps logging
+    # rows while step 11 quietly fails, so we accumulate stat history that was
+    # never committed. Those days can never be made provable after the fact --
+    # the contract is write-once and backdating is exactly what it prevents.
+    # Rows-without-a-root is therefore an alarm, not a warning.
+    try:
+        import json as _json
+        from datetime import datetime as _dt, timezone as _tz
+        from web3 import Web3 as _W3
+        _eday = lambda s: int(_dt.strptime(s, "%Y-%m-%d")
+                              .replace(tzinfo=_tz.utc).timestamp() // 86400)
+        con = ro(os.path.expanduser(
+            "~/Documents/undesirables-mcp-server/.cache/market_memory.sqlite"))
+        days = con.execute(
+            "SELECT league, date, COUNT(DISTINCT player_id) FROM player_stats_history "
+            "GROUP BY league, date ORDER BY date DESC LIMIT 14").fetchall()
+        con.close()
+
+        # BOTH legs are checked. Base is the durability leg (a testnet reset would
+        # erase LiteForge entirely), so a Base gap is the one that actually costs
+        # us the claim -- but a silent LiteForge gap would quietly hollow out the
+        # LitVM story, so neither is allowed to fail unwatched.
+        _alchemy = env("ALCHEMY_API_KEY")
+        for _name, _file, _rpc in (
+            ("base", "sports_deployment_base.json",
+             f"https://base-mainnet.g.alchemy.com/v2/{_alchemy}"),
+            ("liteforge", "sports_deployment_v2.json",
+             "https://liteforge.rpc.caldera.xyz/http"),
+        ):
+            try:
+                dep = _json.load(open(os.path.expanduser(
+                    f"~/Documents/undesirables-x402-server/{_file}")))
+                _w = _W3(_W3.HTTPProvider(_rpc))
+                _c = _w.eth.contract(
+                    address=_W3.to_checksum_address(dep["contract"]), abi=dep["abi"])
+                today_ed = _c.functions.currentEpochDay().call()
+                total = _c.functions.totalCommits().call()
+                log(f"  sports merkle [{_name}]: {total} day(s) on chain "
+                    f"{dep['chain_id']} ({dep['contract'][:10]}…)")
+
+                # V2 refuses any commit older than MAX_COMMIT_LAG_DAYS, so an
+                # uncommitted day is on a HARD DEADLINE — once it ages out it is
+                # unprovable forever and no fix recovers it. Split accordingly.
+                urgent, lost = [], []
+                for lg, d, n in days:
+                    if n < 25:
+                        continue
+                    ed = _eday(d)
+                    if _c.functions.hasSnapshot(lg, ed).call():
+                        continue
+                    (lost if today_ed - ed > 3 else urgent).append(
+                        (lg, d, n, today_ed - ed))
+                if urgent:
+                    ws = ", ".join(f"{lg} {d} ({n}p, {3 - age}d left)"
+                                   for lg, d, n, age in urgent[:4])
+                    problems.append(
+                        f"[{_name}] sports days logged but NOT committed — ON "
+                        f"DEADLINE: {ws}. Commits older than 3 days are refused, "
+                        f"so re-run sports_merkle_updater.py NOW or these are "
+                        f"unprovable forever. See ~/logs/sports_merkle.log")
+                if lost:
+                    ws = ", ".join(f"{lg} {d}" for lg, d, _, _ in lost[:4])
+                    problems.append(
+                        f"[{_name}] sports days PERMANENTLY uncommitted (past the "
+                        f"3-day window): {ws}. Cannot be recovered — backdating is "
+                        f"refused by design. Record the gap; do not widen it.")
+            except Exception as e:
+                problems.append(
+                    f"sports merkle [{_name}] CHECK FAILED: {str(e)[:70]} — the "
+                    f"commit deadline is unmonitored on this chain right now")
+
+        # Base gas runway. Commits are ~$0.004 each, so this never costs real
+        # money — but an empty wallet silently converts every future day into a
+        # permanent gap, which is the expensive part.
+        try:
+            _w = _W3(_W3.HTTPProvider(
+                f"https://base-mainnet.g.alchemy.com/v2/{_alchemy}"))
+            dep = _json.load(open(os.path.expanduser(
+                "~/Documents/undesirables-x402-server/sports_deployment_base.json")))
+            bal = _w.eth.get_balance(_W3.to_checksum_address(dep["deployer"]))
+            per = 175_000 * _w.eth.gas_price
+            runway = bal // per if per else 0
+            # Report DAYS, not commits. We commit once per league per night, so
+            # a "20 commits left" reading is really 5 days once four leagues are
+            # active — the raw count reads far safer than it is.
+            con2 = ro(os.path.expanduser(
+                "~/Documents/undesirables-mcp-server/.cache/market_memory.sqlite"))
+            n_leagues = con2.execute(
+                "SELECT COUNT(DISTINCT league) FROM player_stats_history "
+                "WHERE date=(SELECT MAX(date) FROM player_stats_history)"
+            ).fetchone()[0] or 1
+            con2.close()
+            days_left = runway // n_leagues
+            log(f"  base gas runway: {_w.from_wei(bal, 'ether'):.6f} ETH "
+                f"≈ {runway} commits ≈ {days_left}d at {n_leagues} league(s)/night")
+            if days_left < 21:
+                problems.append(
+                    f"Base commit wallet low: ~{days_left} DAYS left "
+                    f"({runway} commits at {n_leagues} leagues/night, "
+                    f"{_w.from_wei(bal, 'ether'):.6f} ETH). Top up "
+                    f"{dep['deployer']} — an empty wallet turns every future day "
+                    f"into a permanently unprovable gap.")
+        except Exception as e:
+            log(f"  base gas runway: check skipped ({str(e)[:50]})")
+    except Exception as e:
+        log(f"  sports merkle: check skipped ({str(e)[:60]})")
+
+    # Forecast board commitments (PredictionRegistry, Base 8453, added 2026-07-27).
+    # This is the SHORTEST deadline in the stack: the contract accepts a board's
+    # root only while today < issue_day + 7 (its shortest horizon), because after
+    # that the board has begun resolving and a "prediction" committed then proves
+    # nothing. Seven days is the entire recovery budget, and it is not extendable
+    # — the whole value of the published hit rate rests on that refusal.
+    try:
+        import json as _json
+        from datetime import datetime as _dt, timezone as _tz
+        from web3 import Web3 as _W3
+        dep = _json.load(open(os.path.expanduser(
+            "~/Documents/undesirables-x402-server/prediction_deployment_base.json")))
+        _w = _W3(_W3.HTTPProvider(
+            f"https://base-mainnet.g.alchemy.com/v2/{env('ALCHEMY_API_KEY')}"))
+        _c = _w.eth.contract(address=_W3.to_checksum_address(dep["contract"]),
+                             abi=dep["abi"])
+        _eday = lambda s: int(_dt.strptime(s, "%Y-%m-%d")
+                              .replace(tzinfo=_tz.utc).timestamp() // 86400)
+        min_h = _c.functions.streams("tcg_forecast").call()[1]
+        today_ed = _c.functions.currentEpochDay().call()
+        fl = ro(os.path.expanduser(
+            "~/Documents/undesirables-x402-server/forecast_ledger.sqlite"))
+        dates = [r[0] for r in fl.execute(
+            "SELECT DISTINCT forecast_date FROM forecast_ledger "
+            "ORDER BY forecast_date DESC LIMIT 12")]
+        fl.close()
+        log(f"  forecast commitments: {_c.functions.totalForecasts().call()} "
+            f"board(s) on Base ({dep['contract'][:10]}…)")
+        urgent = []
+        for d in dates:
+            ed = _eday(d)
+            if today_ed >= ed + min_h:
+                continue                      # already past saving; not actionable
+            if not _c.functions.hasForecast("tcg_forecast", ed).call():
+                urgent.append(f"{d} ({ed + min_h - today_ed}d left)")
+        if urgent:
+            problems.append(
+                f"forecast board(s) NOT committed on-chain: {', '.join(urgent[:5])}. "
+                f"After the window the board has begun resolving and can never be "
+                f"committed — our published hit rate becomes unverifiable for those "
+                f"days. Run: cd ~/Documents/undesirables-x402-server && "
+                f"./venv/bin/python forecast_commit.py --backfill")
+    except Exception as e:
+        problems.append(
+            f"forecast commitment check FAILED: {str(e)[:70]} — the shortest "
+            f"deadline in the stack is currently unmonitored")
+
+    # CLAIMS REGISTER (added 2026-07-28). Every publishable number must be
+    # regeneratable from source, with its universe/window/n attached. A claim
+    # that can no longer be derived is a claim we cannot defend — it should come
+    # off the site rather than sit there because it was true once. This runs the
+    # register in --check mode; a non-zero exit means something we publish has
+    # lost its provenance.
+    try:
+        import subprocess as _sp
+        _r = _sp.run(
+            [os.path.expanduser("~/Documents/undesirables-x402-server/venv/bin/python"),
+             os.path.expanduser("~/Documents/undesirables-x402-server/claims_register.py"),
+             "--check"], capture_output=True, text=True, timeout=900)
+        _tail = [l for l in _r.stdout.splitlines() if "derivable" in l]
+        log(f"  claims register: {_tail[-1] if _tail else 'no summary line'}")
+        if _r.returncode != 0:
+            _bad = [l.strip() for l in _r.stdout.splitlines() if "UNDERIVABLE" in l]
+            problems.append(
+                f"claims register has UNDERIVABLE entries: {'; '.join(_bad[:3])}. "
+                f"A number we cannot regenerate from source cannot be defended — "
+                f"pull it from public copy until it can.")
+    except Exception as e:
+        problems.append(f"claims register FAILED to run: {str(e)[:70]}")
+
+    # Realised-price commitments (stream tcg_price, added 2026-07-28).
+    # This is the OTHER half of every accuracy claim. Forecast roots were already
+    # committed; without the realised panel a third party can verify what we
+    # PREDICTED but must take our word for what HAPPENED — which is the half that
+    # matters when the number flatters us. Same 3-day write-once window as the
+    # rest, so an uncommitted day ages out permanently and the loop stays open
+    # for that date forever.
+    try:
+        import json as _json
+        from datetime import datetime as _dt, timezone as _tz
+        from web3 import Web3 as _W3
+        dep = _json.load(open(os.path.expanduser(
+            "~/Documents/undesirables-x402-server/sports_deployment_base.json")))
+        _w = _W3(_W3.HTTPProvider(
+            f"https://base-mainnet.g.alchemy.com/v2/{env('ALCHEMY_API_KEY')}"))
+        _c = _w.eth.contract(address=_W3.to_checksum_address(dep["contract"]),
+                             abi=dep["abi"])
+        _eday = lambda s: int(_dt.strptime(s, "%Y-%m-%d")
+                              .replace(tzinfo=_tz.utc).timestamp() // 86400)
+        today_ed = _c.functions.currentEpochDay().call()
+        con = ro(os.path.expanduser(
+            "~/Documents/undesirables-mcp-server/.cache/market_memory.sqlite"))
+        days = [r[0] for r in con.execute(
+            "SELECT DISTINCT date FROM price_history WHERE product_id<9500000 "
+            "ORDER BY date DESC LIMIT 5")]
+        con.close()
+        urgent = []
+        for d in days:
+            ed = _eday(d)
+            if today_ed - ed > 3:
+                continue                     # already past saving
+            if not _c.functions.hasSnapshot("tcg_price", ed).call():
+                urgent.append(f"{d} ({3 - (today_ed - ed)}d left)")
+        log(f"  price commitments: checked {len(days)} recent day(s) on "
+            f"tcg_price stream")
+        if urgent:
+            problems.append(
+                f"realised PRICE panel not committed: {', '.join(urgent)}. Past "
+                f"the 3-day window it can never be committed, and every accuracy "
+                f"claim covering that date becomes unverifiable by anyone but us. "
+                f"Run: cd ~/Documents/undesirables-x402-server && "
+                f"./venv/bin/python tcg_price_commit.py --backfill")
+    except Exception as e:
+        problems.append(f"price-commitment check FAILED: {str(e)[:70]}")
+
+    # CONTRACT OWNERSHIP WATCH (added 2026-07-28, sailorpepe-approved).
+    # One key is currently owner AND publisher on every registry, and it lives
+    # hot in .env on this machine. A leak is unrecoverable: write-once means the
+    # attacker's junk roots for future days can never be replaced, and
+    # transferOwnership would take the contracts outright. sailorpepe deferred
+    # the cold-wallet split to ~2026-08-04, so this covers the gap — it cannot
+    # PREVENT a takeover, but it turns "found out weeks later when a commit
+    # silently stopped working" into "knew within a day".
+    #
+    # DESIGN RULE: a missing or unreadable baseline is an ALARM, never a silent
+    # re-baseline. Auto-healing here would mean an attacker who changed owner
+    # AND deleted the file gets a clean bill of health — the exact failure this
+    # check exists to prevent.
+    try:
+        import json as _json
+        from web3 import Web3 as _W3
+        _basep = os.path.expanduser("~/.cache/undesirables_contract_owners.json")
+        if not os.path.exists(_basep):
+            problems.append(
+                f"contract-ownership baseline MISSING ({_basep}). Not re-created "
+                f"automatically on purpose — verify owner/publisher by hand "
+                f"against the tracker before restoring it.")
+        else:
+            _b = _json.load(open(_basep))
+            _al = env("ALCHEMY_API_KEY")
+            _rpcs = {
+                "base": f"https://base-mainnet.g.alchemy.com/v2/{_al}",
+                "liteforge": "https://liteforge.rpc.caldera.xyz/http",
+            }
+            _OWNER_ABI = [
+                {"name": "owner", "type": "function", "stateMutability": "view",
+                 "inputs": [], "outputs": [{"type": "address"}]},
+                {"name": "publisher", "type": "function", "stateMutability": "view",
+                 "inputs": [], "outputs": [{"type": "address"}]},
+            ]
+            _drift, _checked = [], 0
+            for _name, _exp in (_b.get("contracts") or {}).items():
+                try:
+                    _w = _W3(_W3.HTTPProvider(_rpcs[_exp["rpc_kind"]]))
+                    _c = _w.eth.contract(
+                        address=_W3.to_checksum_address(_exp["contract"]),
+                        abi=_OWNER_ABI)
+                    _now_o = _c.functions.owner().call()
+                    _checked += 1
+                    if _now_o != _exp["owner"]:
+                        _drift.append(f"{_name} OWNER {_exp['owner'][:10]}… → "
+                                      f"{_now_o[:10]}…")
+                    # publisher() is optional per-entry: MerklePriceOracle (added
+                    # 2026-07-31) is Ownable2Step with no owner/publisher split.
+                    if "publisher" in _exp:
+                        _now_p = _c.functions.publisher().call()
+                        if _now_p != _exp["publisher"]:
+                            _drift.append(f"{_name} PUBLISHER {_exp['publisher'][:10]}… → "
+                                          f"{_now_p[:10]}…")
+                except Exception as e:
+                    # An unreachable chain is not drift — say so rather than
+                    # implying a takeover, but do not count it as verified.
+                    log(f"  ownership watch: {_name} unreadable ({str(e)[:50]})")
+            log(f"  contract ownership: {_checked}/{len(_b.get('contracts') or {})} "
+                f"verified unchanged")
+            if _drift:
+                problems.append(
+                    "🚨 CONTRACT OWNERSHIP CHANGED — " + "; ".join(_drift) +
+                    ". If this was not you, the signing key is compromised: every "
+                    "future day can be permanently poisoned and the contracts may "
+                    "already be lost. If it WAS you (cold-wallet split), update "
+                    "~/.cache/undesirables_contract_owners.json to the new values.")
+    except Exception as e:
+        problems.append(f"contract-ownership watch FAILED: {str(e)[:70]} — "
+                        f"takeover would currently go unnoticed")
 
     # forecast_feed.json — the FREE board the site + agents consume (04:50 cron)
     try:
@@ -375,8 +948,9 @@ def main():
                 urllib.request.urlopen(urllib.request.Request(
                     f"https://ntfy.sh/{topic}", data=body.encode(),
                     headers={"Title": "Undesirables stack health", "Priority": "high", "Tags": "rotating_light"}),
-                    timeout=15)
-                log("  (phone alert sent)")
+                    timeout=15) if not NO_PAGE else None
+                log("  (phone alert SUPPRESSED — NO_PAGE=1)" if NO_PAGE
+                    else "  (phone alert sent)")
             except Exception as e:
                 log(f"  (ntfy failed: {e})")
     else:
