@@ -50,7 +50,7 @@ mcp = FastMCP(
     "TCG Oracle",
     instructions=(
         "Financial intelligence API for the $50B+ trading card market. "
-        "Search 446K+ products across 25+ games, grade card images with AI, "
+        "Search 449K+ products across 25+ games, grade card images with AI, "
         "forecast prices with a conformal-calibrated risk model (Monte Carlo opt-in), and get ROI verdicts "
         "on whether to send cards for professional grading. "
         "All data comes from TCGCSV daily market snapshots and real-time analysis."
@@ -152,7 +152,7 @@ def search_tcg_products(
     limit: int = 10,
 ) -> dict:
     """
-    Search 446K+ TCG products across 25+ card games.
+    Search 449K+ TCG products across 25+ card games.
     Returns card names and IDs, plus current market prices.
     FREE — no payment required.
 
@@ -186,8 +186,12 @@ def search_tcg_products(
 def market_snapshot(game: str = "") -> dict:
     """
     Daily TCG market snapshot with top movers, biggest gainers/losers,
-    and volume leaders across all 13 supported card games.
-    FREE — no payment required.
+    and volume leaders across all 25 supported card games.
+
+    PAID: $0.025 USDC per call (x402 — USDC on Base or Solana, or USDG on
+    Robinhood Chain). Previously documented as FREE, which was wrong: the server
+    has always returned a 402 for this route. An autonomous caller budgeting off
+    that docstring hit an unbudgeted paywall. (External audit 2026-07-30, BUG-2.)
 
     Use this when: a user asks "what's trending in the card market?" or
     "what cards are going up/down in value?"
@@ -215,7 +219,11 @@ def grade_card(
     Returns PSA/Beckett-calibrated subgrades and an overall condition score.
     Also includes a free ROI verdict (should you grade this card?).
 
-    PAID: $0.10 USDC per call (x402 payment on Base network).
+    PAID: $0.10 per call via x402. THREE rails are accepted, not just Base:
+      - USDC on Base            (eip155:8453)
+      - USDC on Solana          (solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp)
+      - USDG on Robinhood Chain (eip155:4663)
+    Solana settlement is verified working end to end. (Audit 2026-07-30, BUG-12.)
 
     Use this when: a user has a card image and wants to know what grade
     it would receive from PSA or Beckett.
@@ -335,8 +343,17 @@ def trending_cards(
     min_price: float = 0.0,
 ) -> dict:
     """
-    Top trading cards by 30-day sales volume and price velocity.
-    Covers all 13 supported TCG games.
+    Top trading cards by PRICE VELOCITY (drift), highest absolute movement first.
+
+    NOTE (corrected 2026-07-30): this previously claimed "30-day sales volume".
+    Sales volume and view counts are NOT in the dataset and the API itself now
+    explicitly disclaims them — see `ranked_by` in the response.
+
+    Each row carries the same conformal risk model the free /api/v1/forecast
+    board uses. Band and VaR PERCENTAGES are regime-level constants by design
+    (regime-aware split conformal), so cards in the same regime share them;
+    absolute values differ per card. Do not read it as a per-card fit.
+    Covers all 25+ supported TCG games.
 
     PAID: $0.025 USDC per call.
 
@@ -504,6 +521,86 @@ def soul_calls(token_id: int) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# [GAME] The Syndicate — FREE turn-based strategy the agent can PLAY.
+# SYNDICATE_AGENTS.md P1: same engine and leaderboard as the human browser
+# game at play.the-undesirables.com; agents submit order INTENTS, the server
+# resolves them with a seed the client never sees. Loot prices are the real
+# TCG oracle — reading market data (card_forecast etc.) is the actual meta.
+# ---------------------------------------------------------------------------
+PLAY_BASE = os.getenv("PLAY_BASE_URL", "https://play.the-undesirables.com")
+
+
+def _call_play(payload: dict = None, query: dict = None) -> dict:
+    """POST (with payload) or GET (with query) the Syndicate game API."""
+    try:
+        with httpx.Client(timeout=60.0, headers=_UA) as client:
+            r = (client.post(f"{PLAY_BASE}/api/game", json=payload) if payload is not None
+                 else client.get(f"{PLAY_BASE}/api/game", params=query or {}))
+            try:
+                body = r.json()
+            except Exception:
+                body = {"raw": r.text[:400]}
+            if r.status_code != 200:
+                return {"status": "error", "http": r.status_code, **(body if isinstance(body, dict) else {})}
+            return body
+    except Exception as e:
+        return {"status": "error", "message": str(e)[:200]}
+
+
+@mcp.tool()
+def syndicate_state(session_id: str = "") -> dict:
+    """
+    The Syndicate — a FREE turn-based organized-crime strategy game you (the
+    agent) can play. Same city, same rules, same leaderboard as the human
+    game at play.the-undesirables.com.
+
+    Call with NO session_id to start a new game (you get a sessionId, your
+    3-member crew, capital, and a target list). Call with your session_id to
+    re-read the current state any time. Full rules: play.the-undesirables.com/SKILL.md
+
+    Strategy tip: looted cards are priced by the REAL TCG market — use
+    card_forecast / search_tcg_products to decide what to fence and when.
+    """
+    if not session_id:
+        return _call_play(payload={"action": "new", "name": "Agent Syndicate", "model": "mcp-agent"})
+    return _call_play(query={"id": session_id})
+
+
+@mcp.tool()
+def syndicate_move(session_id: str, orders: list) -> dict:
+    """
+    Submit one day of orders to your Syndicate game and get the resolved
+    day back (events + new state). One order per crew member per day.
+
+    orders: list of {"agentId": int, "targetId": int, "actionType": str}
+    actionType is one of: raid, driveby, extort, garrison, rob, patrol, heal,
+    pray, retain, injunction, cook_books, audit, hire, swat_raid, charity,
+    intimidate, launder, rig_games, brawl, ambush, campaign, precinct_raid,
+    lay_low, steal_car, fence.
+
+    Empty orders list = pass the day (the world still moves: rivals act,
+    rackets pay, heat decays). targetId comes from the `targets` and
+    `territory` lists in syndicate_state.
+    """
+    return _call_play(payload={"action": "orders", "sessionId": session_id, "orders": orders or []})
+
+
+@mcp.tool()
+def syndicate_leaderboard() -> dict:
+    """
+    The Syndicate's shared 'Biggest Scores' leaderboard — humans and AI
+    agents on ONE board; agent entries carry {"agent": true} and a model
+    label. Win a game (own the city) and your score posts automatically.
+    """
+    try:
+        with httpx.Client(timeout=30.0, headers=_UA) as client:
+            r = client.get(f"{PLAY_BASE}/api/scores")
+            return r.json() if r.status_code == 200 else {"status": "error", "http": r.status_code}
+    except Exception as e:
+        return {"status": "error", "message": str(e)[:200]}
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
@@ -524,7 +621,7 @@ if __name__ == "__main__":
     print(f"   Transport: {args.transport}")
     print(f"   Bind: {args.host}:{args.port}")
     print(f"   x402 Backend: {X402_BASE}")
-    print(f"   Tools: 12 (search, market, grade, grade-or-not, simulate, card_forecast, trending, portfolio, recommend, accuracy, souls_in_wallet, soul_calls)")
+    print(f"   Tools: 15 (search, market, grade, grade-or-not, simulate, card_forecast, trending, portfolio, recommend, accuracy, souls_in_wallet, soul_calls, syndicate_state, syndicate_move, syndicate_leaderboard)")
     print()
 
     if args.transport == "streamable-http":
@@ -563,7 +660,7 @@ is working.</p>
 <p>Add it to an MCP client (Claude Desktop, Cursor, Windsurf, VS Code, Perplexity):</p>
 <pre>https://{PUBLIC_HOST}</pre>
 <p class=n>No install. No API key. No account.</p>
-<p>You get {len(mcp._tool_manager.list_tools())} tools over 446K+ trading-card products across 25+ games:
+<p>You get {len(mcp._tool_manager.list_tools())} tools over 449K+ trading-card products across 25+ games:
 free search, market snapshots, price forecasts and accuracy stats; paid tools
 (AI card grading, conformal risk forecasts, portfolio optimisation) answer with an
 x402 payment request in USDC on Base, so a funded agent can settle and retry —
