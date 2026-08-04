@@ -12,7 +12,7 @@ listing everything stale/broken. Silence = healthy.
 Read-only on all DBs; stdlib only; zero API cost. Cron: 07:00 daily (after the
 full nightly choreography has finished ~06:30).
 """
-import os, sqlite3, urllib.request
+import os, sqlite3, time, urllib.request
 from datetime import date, datetime, timedelta
 
 MCP = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -157,15 +157,37 @@ def main():
     except Exception as e:
         problems.append(f"price proof-tree Base mirror check FAILED: {str(e)[:60]}")
 
-    # 3) oracle health endpoint
-    try:
-        import json
-        h = json.load(urllib.request.urlopen("http://127.0.0.1:8402/health", timeout=10))
-        if h.get("status") != "ok":
-            problems.append(f"oracle /health status={h.get('status')}")
-        log(f"  oracle /health: {h.get('status')} ({h.get('total_cards')} cards)")
-    except Exception as e:
-        problems.append(f"oracle /health unreachable: {str(e)[:50]}")
+    # 3) oracle health endpoint.
+    # RETRIES (added 2026-08-04): this probe is LOOPBACK and normally answers in
+    # ~2ms, but it runs at the END of a 6-minute healthcheck and the whole box
+    # can be CPU/memory-starved by then — that morning a runaway Messages.app
+    # (100% CPU since boot) + ~22GB of swapouts made a 127.0.0.1 request miss a
+    # 10s timeout, paging sailorpepe for a server that was serving fine (zero
+    # slow requests in oracle_requests.jsonl, nothing in the cloudflared log).
+    # A single loopback timeout is evidence about the HOST, not the service, so
+    # only alarm when it fails repeatedly — and say so, to point the next
+    # session at host contention instead of the oracle.
+    _h_err = None
+    for _attempt in range(3):
+        try:
+            import json
+            h = json.load(urllib.request.urlopen("http://127.0.0.1:8402/health", timeout=10))
+            if h.get("status") != "ok":
+                problems.append(f"oracle /health status={h.get('status')}")
+            log(f"  oracle /health: {h.get('status')} ({h.get('total_cards')} cards)"
+                + (f" [recovered after {_attempt} retr{'y' if _attempt == 1 else 'ies'}"
+                   f" — host was starved, check CPU/swap]" if _attempt else ""))
+            _h_err = None
+            break
+        except Exception as e:
+            _h_err = str(e)[:50]
+            if _attempt < 2:
+                time.sleep(5)
+    if _h_err:
+        problems.append(
+            f"oracle /health unreachable on 3 tries: {_h_err} — loopback probe, so "
+            f"check host CPU/swap (ps -Ao %cpu,comm -r | head; sysctl vm.swapusage) "
+            f"before suspecting the oracle")
 
     # 3b) nightly-job freshness — a job can die at python STARTUP (2026-07-16:
     # transient TCC denial killed the 04:00 conformal refit instantly; in-script
