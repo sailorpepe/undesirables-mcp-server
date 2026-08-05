@@ -80,16 +80,28 @@ def export_price_history(conn, output_dir: Path) -> int:
         WHERE p.market_price > 0
         ORDER BY p.product_id, p.date, p.sub_type
     """)
-    rows = cur.fetchall()
 
+    # STREAM, never fetchall() (2026-08-05). This query is unbounded — it
+    # returns every row in price_history — so fetchall() materialises the whole
+    # result set in Python memory before a single byte is written. That was
+    # survivable at 126 days / 32M rows; the TCGCSV archive backfill takes this
+    # table past 200M rows, where fetchall() on a 16GB box means an OOM or a
+    # swap-storm at 3am. Iterating the cursor holds one batch at a time and
+    # produces byte-identical output.
+    rows = 0
     with open(out, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["product_id", "name", "category_id", "sub_type", "date",
                      "market_price", "low_price", "mid_price", "high_price"])
-        w.writerows(rows)
+        while True:
+            batch = cur.fetchmany(50_000)
+            if not batch:
+                break
+            w.writerows(batch)
+            rows += len(batch)
 
-    print(f"  tcg_price_history.csv: {len(rows):,} price rows")
-    return len(rows)
+    print(f"  tcg_price_history.csv: {rows:,} price rows")
+    return rows
 
 
 def export_game_stats(conn, output_dir: Path) -> int:
