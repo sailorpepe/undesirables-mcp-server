@@ -46,6 +46,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.request
 from datetime import date, timedelta
 from pathlib import Path
@@ -157,13 +158,34 @@ def main():
         tmp = Path(tempfile.mkdtemp(prefix=f"tcgcsv-{ds}-"))
         try:
             arc = tmp / "day.7z"
-            try:
-                req = urllib.request.Request(url, headers=UA)
-                with urllib.request.urlopen(req, timeout=180) as r, open(arc, "wb") as f:
-                    shutil.copyfileobj(r, f)
-            except Exception as e:
-                code = getattr(e, "code", None)
-                log(f"{ds}: archive unavailable ({code or type(e).__name__}) — skipping")
+            # RETRY WITH BACKOFF, and be polite to a free service.
+            # The 2026-08-05 run fetched ~250 days with no delay, then failed
+            # 530 CONSECUTIVE days in 18 seconds — every one of which was later
+            # confirmed present (HTTP 206). That was not missing data, it was
+            # TCGCSV rate-limiting us, and the script happily logged it as
+            # "unavailable" and moved on. A transient network error must never
+            # be recorded as absent data.
+            # A 404 IS genuinely absent (before ~2024-02-08) and is not retried.
+            ok = False
+            for attempt in range(4):
+                try:
+                    req = urllib.request.Request(url, headers=UA)
+                    with urllib.request.urlopen(req, timeout=180) as r, open(arc, "wb") as f:
+                        shutil.copyfileobj(r, f)
+                    ok = True
+                    break
+                except urllib.error.HTTPError as e:
+                    if e.code == 404:
+                        log(f"{ds}: archive does not exist (404) — before the archive begins")
+                        break
+                    wait = 5 * (2 ** attempt)
+                    log(f"{ds}: HTTP {e.code}, retry {attempt+1}/4 in {wait}s")
+                    time.sleep(wait)
+                except Exception as e:
+                    wait = 5 * (2 ** attempt)
+                    log(f"{ds}: {type(e).__name__}, retry {attempt+1}/4 in {wait}s")
+                    time.sleep(wait)
+            if not ok:
                 missing += 1
                 continue
 
@@ -197,6 +219,11 @@ def main():
                 break
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+            # Deliberate pace. TCGCSV gives this archive away for free; ~250
+            # back-to-back downloads got us throttled last run. A 2s gap costs
+            # ~30min across the whole range and is the difference between
+            # finishing and getting blocked.
+            time.sleep(2)
 
     log(f"DONE — days imported {imported}, rows {total_rows:,}, "
         f"skipped {skipped}, unavailable {missing}")
