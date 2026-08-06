@@ -67,19 +67,54 @@ def export_market_data(conn, output_dir: Path) -> int:
     return len(rows)
 
 
-def export_price_history(conn, output_dir: Path) -> int:
-    """Export full daily price time series."""
+# The NIGHTLY dataset is a rolling window, not the whole corpus (2026-08-05,
+# sailorpepe's call). The TCGCSV archive backfill took price_history from 126
+# days to multi-year, and re-uploading years of IMMUTABLE history every single
+# night is waste at best: at ~227M rows the CSV is ~13GB, the upload alone runs
+# ~50min at our measured 4.3MB/s, and it blocks every later pipeline step.
+# A year is the window that keeps the public dataset genuinely useful (full
+# seasonal cycle, 30d/90d/annual comparisons) while staying fast. Deep history
+# is still ours locally and can be published as its own occasional dataset
+# version — that is the right home for data that never changes.
+# Override with --history-days N; 0 means "everything" (the old behavior).
+HISTORY_DAYS_DEFAULT = 365
+
+
+def export_price_history(conn, output_dir: Path, history_days: int = HISTORY_DAYS_DEFAULT) -> int:
+    """Export the daily price time series, bounded to a rolling window."""
     cur = conn.cursor()
     out = output_dir / "tcg_price_history.csv"
 
-    cur.execute("""
-        SELECT p.product_id, c.name, c.category_id, p.sub_type,
-               p.date, p.market_price, p.low_price, p.mid_price, p.high_price
-        FROM price_history p
-        JOIN cards c ON p.product_id = c.product_id
-        WHERE p.market_price > 0
-        ORDER BY p.product_id, p.date, p.sub_type
-    """)
+    # Bound relative to the DATA's own max date, never to wall-clock today —
+    # TCGCSV lags a day and a stalled pipeline would otherwise silently narrow
+    # the window.
+    cutoff = None
+    if history_days and history_days > 0:
+        row = cur.execute(
+            "SELECT DATE(MAX(date), ?) FROM price_history WHERE product_id < 9500000",
+            (f"-{int(history_days)} days",)).fetchone()
+        cutoff = row[0] if row else None
+
+    if cutoff:
+        print(f"  price history window: {cutoff} → present ({history_days}d)")
+        cur.execute("""
+            SELECT p.product_id, c.name, c.category_id, p.sub_type,
+                   p.date, p.market_price, p.low_price, p.mid_price, p.high_price
+            FROM price_history p
+            JOIN cards c ON p.product_id = c.product_id
+            WHERE p.market_price > 0 AND p.date >= ?
+            ORDER BY p.product_id, p.date, p.sub_type
+        """, (cutoff,))
+    else:
+        print("  price history window: FULL CORPUS (history_days=0)")
+        cur.execute("""
+            SELECT p.product_id, c.name, c.category_id, p.sub_type,
+                   p.date, p.market_price, p.low_price, p.mid_price, p.high_price
+            FROM price_history p
+            JOIN cards c ON p.product_id = c.product_id
+            WHERE p.market_price > 0
+            ORDER BY p.product_id, p.date, p.sub_type
+        """)
 
     # STREAM, never fetchall() (2026-08-05). This query is unbounded — it
     # returns every row in price_history — so fetchall() materialises the whole
@@ -260,6 +295,8 @@ def main():
                         help="Output directory for CSVs")
     parser.add_argument("--push", action="store_true",
                         help="Push to Kaggle after export")
+    parser.add_argument("--history-days", type=int, default=HISTORY_DAYS_DEFAULT,
+                        help="Rolling price-history window in days (0 = full corpus)")
     args = parser.parse_args()
 
     if not DB_PATH.exists():
@@ -279,7 +316,7 @@ def main():
     print()
 
     total_products = export_market_data(conn, args.output)
-    total_history = export_price_history(conn, args.output)
+    total_history = export_price_history(conn, args.output, args.history_days)
     total_categories = export_game_stats(conn, args.output)
     write_metadata(args.output, total_products, total_history,
                    total_categories, days)
