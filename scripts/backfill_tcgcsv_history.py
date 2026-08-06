@@ -205,11 +205,26 @@ def main():
             if args.dry_run:
                 log(f"{ds}: DRY-RUN would insert {len(rows):,} rows")
             else:
-                conn.executemany(
-                    "INSERT INTO price_history "
-                    "(product_id, market_price, low_price, mid_price, high_price, date, sub_type) "
-                    "VALUES (?,?,?,?,?,?,?)", rows)
-                conn.commit()          # per-day commit: short lock, live oracle unaffected
+                # CHUNKED COMMITS (2026-08-06). One transaction per day was fine
+                # at 32M rows, but at ~100M a single 244k-row insert against 4
+                # indexes holds the write lock long enough to starve readers —
+                # it wedged the oracle's own STARTUP in uninterruptible I/O and
+                # took the API down until the backfill was paused. Smaller
+                # transactions with a breath between them give readers windows.
+                # Correctness is unchanged: a day is still skipped wholesale if
+                # already present, so a crash mid-day leaves a partial date that
+                # the idempotency check would treat as done — hence the explicit
+                # cleanup below before re-inserting.
+                conn.execute("DELETE FROM price_history WHERE date=?", (ds,))
+                conn.commit()
+                CHUNK = 25_000
+                for i in range(0, len(rows), CHUNK):
+                    conn.executemany(
+                        "INSERT INTO price_history "
+                        "(product_id, market_price, low_price, mid_price, high_price, date, sub_type) "
+                        "VALUES (?,?,?,?,?,?,?)", rows[i:i + CHUNK])
+                    conn.commit()
+                    time.sleep(0.25)   # yield to the live API between chunks
                 log(f"{ds}: +{len(rows):,} rows")
 
             imported += 1
