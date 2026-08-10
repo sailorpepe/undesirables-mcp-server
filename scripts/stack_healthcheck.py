@@ -157,6 +157,34 @@ def main():
     except Exception as e:
         problems.append(f"price proof-tree Base mirror check FAILED: {str(e)[:60]}")
 
+    # 2c) graded proof-tree Base mirror parity (contract deployed 2026-08-09).
+    # Same rationale as 2b: the graded tree backs the PAID /api/v1/graded/proof
+    # surface, and its mirror leg in graded_merkle_updater.py is non-blocking,
+    # so this is the check that catches silent drift. One-root lag self-heals
+    # on the next daily push (05:17); persistent mismatch = broken mirror leg.
+    try:
+        import json as _gj
+        from web3 import Web3 as _GW3
+        _gabi = _gj.load(open(os.path.join(X, "GradedPriceOracle_abi.json")))
+        _glf = _gj.load(open(os.path.join(X, "graded_deployment.json")))["contract"]
+        _gba = _gj.load(open(os.path.join(X, "graded_deployment_base.json")))["contract"]
+        _glfw = _GW3(_GW3.HTTPProvider("https://liteforge.rpc.caldera.xyz/http",
+                                       request_kwargs={"timeout": 30}))
+        _gbaw = _GW3(_GW3.HTTPProvider(
+            f"https://base-mainnet.g.alchemy.com/v2/{env('ALCHEMY_API_KEY')}",
+            request_kwargs={"timeout": 30}))
+        _glfr = _glfw.eth.contract(address=_glf, abi=_gabi).functions.merkleRoot().call().hex()
+        _gbar = _gbaw.eth.contract(address=_gba, abi=_gabi).functions.merkleRoot().call().hex()
+        if _glfr == _gbar:
+            log(f"  graded proof-tree Base mirror: roots match ({_glfr[:14]}…)")
+        else:
+            problems.append(
+                f"graded proof-tree MIRROR DRIFT: LiteForge {_glfr[:14]}… vs Base "
+                f"{_gbar[:14]}… — check graded_merkle_updater.py's Base leg "
+                f"(non-blocking by design, so it fails quiet)")
+    except Exception as e:
+        problems.append(f"graded proof-tree Base mirror check FAILED: {str(e)[:60]}")
+
     # 3) oracle health endpoint.
     # RETRIES (added 2026-08-04): this probe is LOOPBACK and normally answers in
     # ~2ms, but it runs at the END of a 6-minute healthcheck and the whole box
