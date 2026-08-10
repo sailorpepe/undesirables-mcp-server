@@ -266,7 +266,26 @@ def main():
                 f.seek(max(0, os.path.getsize(p) - 4000))
                 tail = f.read().decode("utf-8", "replace")
             ok = age_h <= max_h and (not ok_markers or any(m in tail for m in ok_markers))
-            log(f"  {label}: {'OK' if ok else 'PROBLEM'} (log {age_h:.1f}h old)")
+            # ── PARTIAL-FAILURE DETECTION (added 2026-08-10 after litvm_updater_v2
+            # spent FOUR DAYS failing intermittently while this check said OK every
+            # night). "Any success marker in the tail" cannot tell a healthy job
+            # from one failing half its runs: today it failed 12 of 23 hourly
+            # pushes (insufficient LiteForge gas at the 3x ladder multiplier), yet
+            # a single success in the last 4KB kept flipping this to OK.
+            # A monitor that cannot distinguish DEGRADED from HEALTHY is the same
+            # defect class as a log line that records a code but not an outcome.
+            fail_markers = ("insufficient funds", "failed after", "Traceback",
+                            "ERROR", "reverted")
+            fails = sum(tail.count(m) for m in fail_markers)
+            if ok and fails:
+                log(f"  {label}: ⚠️ DEGRADED — success marker present but {fails} "
+                    f"failure indicator(s) in the same tail (log {age_h:.1f}h old)")
+                problems.append(
+                    f"{label}: PARTIAL FAILURE — {fails} failure indicator(s) "
+                    f"alongside recent success in {path}. Intermittent pushers "
+                    f"degrade to total failure; read the tail before dismissing.")
+            else:
+                log(f"  {label}: {'OK' if ok else 'PROBLEM'} (log {age_h:.1f}h old)")
             if not ok:
                 problems.append(f"{label}: log {age_h:.1f}h old / no success marker in tail — check {path}")
         except OSError:
