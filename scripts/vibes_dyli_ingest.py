@@ -210,7 +210,16 @@ def main():
         print("[!] nothing priced — DB untouched."); return
 
     today = date.today().isoformat()
-    db = sqlite3.connect(a.db)
+    # 60s busy_timeout (2026-08-11): this ingest runs at 04:10, INSIDE the daily
+    # pipeline's window (it was still running Step 10-11 at 04:41), so it hit
+    # `sqlite3.OperationalError: database is locked` and died 3 days running —
+    # catalog went stale 08-09..08-11 with the whole fetch already completed and
+    # thrown away. Without a busy_timeout SQLite fails INSTANTLY on contention
+    # rather than waiting; 60s lets a pipeline write finish and then proceeds.
+    # (This feed has form: the healthcheck exists because it silently died for
+    # 3 days in July too. Same feed, different cause, same invisibility.)
+    db = sqlite3.connect(a.db, timeout=60)
+    db.execute("PRAGMA busy_timeout = 60000")
     ensure_schema(db)
     tcg_max = db.execute("SELECT MAX(date) FROM price_history WHERE product_id < 9500000").fetchone()[0]
 
