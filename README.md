@@ -29,9 +29,15 @@
 
 ```
 https://mcp.the-undesirables.com
+
+Newest hosted tools (Sept 2026): `fantasy_league` — 4,444 AI personalities
+drafting weekly fantasy lineups, merkle-committed before games score ·
+`loan_terms_preview` — the Loan-Terms Oracle's six-step max-LTV derivation for
+card collateral · `oracle_scorecard` — our public 30-day coverage record
+(93%+ on 181K+ matured forecasts, committed on-chain before outcomes).
 ```
 
-No install, no account, no API key. **12 tools** over streamable HTTP (MCP protocol
+No install, no account, no API key. **23 tools** over streamable HTTP (MCP protocol
 `2025-06-18`; legacy SSE also served). Free tools answer immediately. Paid tools return an
 x402 `payment_required` carrying amount, network, and `payTo` — an agent with a funded
 wallet can settle and retry in the same session. Settlement only occurs on a successful
