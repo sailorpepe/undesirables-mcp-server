@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.sailorpepe/undesirables-mcp-server",
   "title": "The Undesirables TCG Oracle",
-  "description": "Conformal-calibrated trading-card market intelligence: 455K+ card prices, risk forecasts with a public 30-day coverage scorecard, card-collateral loan terms, AI grading, slab census, sports forecasts, and a 4,444-soul fantasy league — every prediction merkle-committed on-chain before outcomes exist. Hosted endpoint needs no install or key; the PyPI package runs fully local.",
+  "description": "TCG oracle: calibrated prices & risk, card-loan terms, AI grading, fantasy souls \u2014 proven on-chain.",
   "version": "1.2.0",
   "websiteUrl": "https://oracle.the-undesirables.com",
   "repository": {
