@@ -1,8 +1,13 @@
+# Smithery configuration — https://smithery.ai/docs
+# Deploys the hosted remote server (mcp_remote.py): 23 tools over
+# streamable HTTP, no keys or config needed (public oracle APIs underneath).
+runtime: "container"
+build:
+  dockerfile: Dockerfile.smithery
+  dockerBuildPath: .
 startCommand:
-  type: stdio
-  config:
-    command: python
-    args:
-      - server.py
-buildCommands:
-  - pip install -r requirements.txt
+  type: http
+  configSchema:
+    type: object
+    properties: {}
+  exampleConfig: {}
