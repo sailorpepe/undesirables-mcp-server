@@ -1,28 +1,30 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.sailorpepe/undesirables-mcp-server",
-  "description": "Conformal TCG risk forecasts + AI card grading, x402 pay-per-call oracle, on-chain soul agents.",
+  "title": "The Undesirables TCG Oracle",
+  "description": "Conformal-calibrated trading-card market intelligence: 455K+ card prices, risk forecasts with a public 30-day coverage scorecard, card-collateral loan terms, AI grading, slab census, sports forecasts, and a 4,444-soul fantasy league — every prediction merkle-committed on-chain before outcomes exist. Hosted endpoint needs no install or key; the PyPI package runs fully local.",
+  "version": "1.2.0",
+  "websiteUrl": "https://oracle.the-undesirables.com",
   "repository": {
     "url": "https://github.com/sailorpepe/undesirables-mcp-server",
     "source": "github"
   },
-  "version": "1.1.10",
-  "websiteUrl": "https://oracle.the-undesirables.com",
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://mcp.the-undesirables.com"
+      "url": "https://mcp.the-undesirables.com/mcp"
     }
   ],
   "packages": [
     {
       "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
       "identifier": "undesirables-mcp-server",
       "version": "1.1.9",
+      "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
-      },
-      "environmentVariables": []
+      }
     }
   ]
 }
