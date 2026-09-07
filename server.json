@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.sailorpepe/undesirables-mcp-server",
   "title": "The Undesirables TCG Oracle",
-  "description": "TCG oracle: calibrated prices & risk, card-loan terms, AI grading, fantasy souls \u2014 proven on-chain.",
-  "version": "1.2.0",
+  "description": "TCG oracle: calibrated prices & risk, AI grading, loan terms, fantasy souls - proven on-chain. 23 to",
+  "version": "2.0.0",
   "websiteUrl": "https://oracle.the-undesirables.com",
   "repository": {
     "url": "https://github.com/sailorpepe/undesirables-mcp-server",
@@ -20,7 +20,7 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "undesirables-mcp-server",
-      "version": "1.1.9",
+      "version": "2.0.0",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
