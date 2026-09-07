@@ -1,7 +1,7 @@
 [project]
 name = "undesirables-mcp-server"
-version = "1.1.9"
-description = "Local-first AI agent MCP server — TCG card grading, conformal risk forecasts with Safe-Hold/Momentum card grades, video production, music generation, image generation, and security scanning. Zero-trust architecture, everything runs on your machine."
+version = "2.0.0"
+description = "The Undesirables TCG Oracle as an MCP server: 23 focused tools for trading cards. Search 455K+ products, live market snapshots, AI grading, conformal-calibrated price forecasts with a public accuracy scorecard, card-collateral loan terms, fantasy and sports souls, all proven on-chain. Same tools as the hosted endpoint, over stdio. The local agent kit (memory, media, voice, code execution) ships as a second entry point."
 requires-python = ">=3.11"
 readme = "README.md"
 license = {text = "BSL-1.1"}
@@ -11,17 +11,15 @@ authors = [
 keywords = [
     "mcp",
     "model-context-protocol",
-    "ai-agent",
     "tcg",
+    "trading-cards",
     "card-grading",
+    "price-oracle",
     "risk-forecasting",
     "conformal-prediction",
-    "local-ai",
-    "ollama",
+    "collectibles",
     "nft",
-    "video-production",
-    "music-generation",
-    "image-generation",
+    "ai-agent",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -40,7 +38,9 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
 ]
 dependencies = [
-    "fastmcp>=3.1.0",
+    "fastmcp>=3.1.0,<4",
+    "mcp>=1.10,<2",
+    "httpx>=0.27",
     "pydantic>=2.0",
     "numpy>=1.24",
     "requests>=2.28",
@@ -56,7 +56,9 @@ Documentation = "https://the-undesirables.com/docs"
 "Bug Tracker" = "https://github.com/sailorpepe/undesirables-mcp-server/issues"
 
 [project.scripts]
-undesirables-mcp = "boot_server:main"
+undesirables-mcp = "oracle_server:main"
+undesirables-mcp-server = "oracle_server:main"
+undesirables-agent-kit = "boot_server:main"
 
 [project.optional-dependencies]
 audio = [
@@ -99,6 +101,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 py-modules = [
+    "oracle_server",
+    "mcp_remote",
+    "tccensus_client",
     "server",
     "boot_server",
     "execute_tool",
