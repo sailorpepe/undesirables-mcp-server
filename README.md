@@ -9,9 +9,9 @@
 [![License: BSL-1.1](https://img.shields.io/badge/License-BSL_1.1-orange.svg?style=flat-square)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/undesirables-mcp-server.svg?style=flat-square)](https://pypi.org/project/undesirables-mcp-server/)
 
-**35+ local compute tools for AI agents — plus a hosted, conformal-calibrated pricing oracle**
+**The TCG Oracle as an MCP server: 23 focused tools, the same ones the hosted endpoint serves — plus a separate 34-tool local agent kit**
 
-*Run it fully local with zero cloud dependency, or connect to the hosted endpoint at `mcp.the-undesirables.com` — pay-per-call in USDC, no account or API key.*
+*Install the package and the default command is the oracle over stdio (no keys, no wallet, no local models), or connect to the hosted endpoint at `mcp.the-undesirables.com`. Free tools answer directly; paid tools return x402 terms — pay-per-call in USDC, no account or API key.*
 
 [Website](https://the-undesirables.com) · [Docs](https://the-undesirables.com/docs) · [PyPI](https://pypi.org/project/undesirables-mcp-server/) · [𝕏](https://x.com/undesirables_ai)
 
@@ -70,13 +70,31 @@ carries a `set` field and a `product_id` you can pass straight to the other tool
 
 ---
 
+## Two servers, one package (v2.0.0)
+
+| Command | What it exposes | For |
+|---|---|---|
+| `undesirables-mcp` (default) | **The TCG Oracle — 23 tools**: search 455K+ cards, market snapshots, AI grading & grade-or-not, conformal-calibrated forecasts with a public accuracy scorecard, portfolio optimisation, card-collateral loan terms, fantasy & sports souls, the Syndicate, Technocore rooms. Backed by the public oracle API. | Anyone who wants the oracle in Claude Desktop, Cursor, Zed, LangChain… |
+| `undesirables-agent-kit` | **The local agent kit — 34 tools**: memory graph, RAG over a soul workspace, meme/banner/video/3D generation, voice, code & shell execution, security audits, web search. Runs entirely on your machine. | Undesirables holders running their soul as a local agent |
+
+v1.x shipped both surfaces under one command; v2 separates them so each server has one job. The hosted endpoint is unchanged.
+
 ## Quick Install
 
 ```bash
 pip install undesirables-mcp-server
+
+undesirables-mcp          # the TCG Oracle over stdio (23 tools, no keys) — default
+undesirables-agent-kit    # the local 34-tool agent kit
 ```
 
-> **Turn any Undesirable NFT into an MCP-compatible AI agent with 35+ local compute tools.**
+Claude Desktop / Cursor / Zed — add the oracle as a stdio server:
+
+```json
+{ "mcpServers": { "undesirables-oracle": { "command": "uvx", "args": ["undesirables-mcp-server"] } } }
+```
+
+> **Turn any Undesirable NFT into an MCP-compatible AI agent with the 34-tool local agent kit (`undesirables-agent-kit`).**
 
 ---
 
@@ -192,7 +210,7 @@ The MCP Server doesn't have a chat window; it runs invisibly in the background o
   }
 }
 ```
-4. Restart the Claude Desktop app. You should see a little "Plugin/Hammer" icon telling you that 35+ The Undesirables tools are now available!
+4. Restart the Claude Desktop app. You should see a little "Plugin/Hammer" icon telling you that 34 The Undesirables tools are now available!
 
 ---
 
@@ -246,7 +264,7 @@ This MCP server exposes your local NFT soul via the [Model Context Protocol](htt
 - `soul://memory` — Persistent memory (trade history, observations)
 - `soul://predictions` — Prediction ledger with grades
 
-**Core Tools** (35+ functions your AI can call):
+**Agent kit tools** (34 functions your AI can call — `undesirables-agent-kit`):
 - `grade_tcg_card` — 3-stage PSA/Beckett grading: Qwen Vision LLM + OpenCV centering + BGS capping
 - `card_forecast` — **FREE** one-call conformal 30-day forecast + Safe-Hold/Momentum letter grades + plain-English read (pass a card name or TCGplayer product_id)
 - `monte_carlo_simulation` — Price forecasting: conformal-calibrated risk by default (honest VaR/CVaR + Safe-Hold/Momentum grades); Monte Carlo GBM/Merton opt-in
@@ -299,7 +317,7 @@ async with MultiServerMCPClient({
     }
 }) as client:
     tools = client.get_tools()
-    # 35+ tools now available to any LangChain agent
+    # 23 oracle tools (or 34 agent-kit tools) now available to any LangChain agent
 ```
 
 ### CrewAI
