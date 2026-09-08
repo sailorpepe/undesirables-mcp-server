@@ -1,7 +1,7 @@
 [project]
 name = "undesirables-mcp-server"
-version = "2.0.1"
-description = "The Undesirables TCG Oracle as an MCP server: 23 focused tools for trading cards. Search 455K+ products, live market snapshots, AI grading, conformal-calibrated price forecasts with a public accuracy scorecard, card-collateral loan terms, fantasy and sports souls, all proven on-chain. Same tools as the hosted endpoint, over stdio. The local agent kit (memory, media, voice, code execution) ships as a second entry point."
+version = "2.1.0"
+description = "The Undesirables TCG Oracle as an MCP server: 22 focused tools for trading cards. Search 455K+ products, live market snapshots, AI grading, conformal-calibrated price forecasts with a public accuracy scorecard, card-collateral loan terms, fantasy and sports souls, all proven on-chain. Same tools as the hosted endpoint, over stdio. The local agent kit (memory, media, voice, code execution) ships as a second entry point."
 requires-python = ">=3.11"
 readme = "README.md"
 license = {text = "BSL-1.1"}

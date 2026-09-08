@@ -2,7 +2,7 @@
 """
 The Undesirables TCG Oracle — local stdio MCP server (the default entry point).
 
-One focused surface: the 23 oracle tools — search 455K+ trading cards, live
+One focused surface: the 22 oracle tools — search 455K+ trading cards, live
 market snapshots, AI grading and grade-or-not decisions, conformal-calibrated
 price forecasts with a public accuracy scorecard, portfolio optimisation,
 card-collateral loan terms, the fantasy and sports souls leagues, the
@@ -26,12 +26,12 @@ security audits — 34 tools) lives in server.py and is a separate entry point:
 """
 import sys
 
-from mcp_remote import mcp  # the 23 oracle tools, registered once, shared with the hosted server
+from mcp_remote import mcp  # the 22 oracle tools, registered once, shared with the hosted server
 
 
 def main():
     # stdio is the protocol channel: keep every human message on stderr
-    print("The Undesirables TCG Oracle — MCP over stdio (23 tools, no keys)", file=sys.stderr, flush=True)
+    print("The Undesirables TCG Oracle — MCP over stdio (22 tools, no keys)", file=sys.stderr, flush=True)
     mcp.run(transport="stdio")
 
 
