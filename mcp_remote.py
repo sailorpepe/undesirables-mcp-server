@@ -440,25 +440,6 @@ def recommend_workflow(goal: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# [META] Prediction Accuracy — FREE
-# ---------------------------------------------------------------------------
-@mcp.tool()
-def check_accuracy(game: str = "") -> dict:
-    """
-    DEPRECATED alias of oracle_scorecard — kept so older agents keep working.
-    Returns exactly the same public accuracy scorecard (30-day conformal
-    coverage, souls' on-chain track record, blind slab study). The `game`
-    argument is accepted but not applied. FREE.
-
-    New callers: use oracle_scorecard. This alias will be removed in 2.1.
-    """
-    params = {}
-    if game:
-        params["game"] = game
-    return _call_x402("/api/v1/accuracy", params)
-
-
-# ---------------------------------------------------------------------------
 # [SOULS] Wallet roster — FREE
 # ---------------------------------------------------------------------------
 @mcp.tool()
@@ -754,8 +735,7 @@ def oracle_scorecard() -> dict:
     this table cannot be curated after the fact.
 
     Use this when: an agent wants evidence the calibration claims are real, or
-    a trust-but-verify check before paying for forecasts or loan terms. For a
-    single game's breakdown use check_accuracy(game=...).
+    a trust-but-verify check before paying for forecasts or loan terms.
     """
     try:
         return _call_x402("/api/v1/accuracy", {})

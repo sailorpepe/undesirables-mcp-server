@@ -1,5 +1,5 @@
 # Smithery configuration — https://smithery.ai/docs
-# Deploys the hosted remote server (mcp_remote.py): 23 tools over
+# Deploys the hosted remote server (mcp_remote.py): 22 tools over
 # streamable HTTP, no keys or config needed (public oracle APIs underneath).
 runtime: "container"
 build:
