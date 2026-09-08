@@ -101,14 +101,9 @@ Claude Desktop / Cursor / Zed — add the oracle as a stdio server:
 ## Table of Contents
 
 - [What It Does](#what-it-does)
-- [What's New in v1.1.8](#whats-new-in-v118)
-- [Prerequisites](#-prerequisites-read-carefully)
-- [Full Setup](#-step-1-install--clone)
-- [Boot The Server](#-step-2-boot-the-server)
-- [Connect Your Chat Front-End](#-step-3-connect-your-chat-front-end)
-- [Local Image Generation](#-step-4-setup-local-image-generation-optional)
-- [Troubleshooting](#%EF%B8%8F-common-idiot-proof-diagnostics)
-- [Technical Architecture](#technical-architecture-for-developers)
+- [What's New in v2.0.0](#whats-new-in-v200)
+- [The Local Agent Kit](#-the-local-agent-kit-undesirables-agent-kit)
+- [Technical Architecture (agent kit)](#technical-architecture-agent-kit)
 - [Agent Framework Integration](#agent-framework-integration)
 - [LitVM TCG Oracle](#litvm-tcg-oracle--mcp-server)
 - [Ecosystem](#the-undesirables-ecosystem)
@@ -118,145 +113,111 @@ Claude Desktop / Cursor / Zed — add the oracle as a stdio server:
 
 ## What It Does
 
-- 🎴 **Vision AI Card Grading** — PSA/Beckett prediction via Qwen VL
-- 📊 **Conformal Risk Forecast** — calibrated VaR/CVaR + Safe-Hold & Momentum letter grades (Monte Carlo GBM/Merton opt-in)
-- 🎵 **AI Music Generation** — ACE Step on Apple Silicon
-- 🎬 **Video Clipping & Beat Sync Editing** — FFmpeg
-- 🖼️ **Local Image Generation** — MLX Flux on Mac, DirectML on Windows, CUDA on Linux
-- 🗣️ **Text to Speech Voice Engine** — Kokoro TTS
-- 🧠 **Persistent RAG Memory Graphs** — CRM node mapping
-- 🔍 **Zero Token Web Search** — DuckDuckGo
-- 🔒 **SAST Code Security Auditing**
-- 📈 **Financial Analytics Oracle** — TCGCSV + eBay depth analysis
+### The TCG Oracle — `undesirables-mcp` (default), 23 tools, no keys
+
+The same 23 tools the hosted endpoint serves, over stdio. Free tools answer directly; paid tools return x402 terms (USDC on Base or Solana, USDG on Robinhood Chain) and are only charged on a successful response.
+
+| Area | Tools |
+|---|---|
+| 🔎 **Search & prices** | `search_tcg_products` (455K+ products, 25+ games, set-aware), `market_snapshot`, `trending_cards` |
+| 📊 **Forecasts & risk** | `card_forecast` (FREE: conformal 30-day forecast + Safe-Hold / Momentum letter grades), `simulate_price` (Monte Carlo GBM / Merton paths), `optimize_portfolio` |
+| 🎴 **Grading** | `grade_card` (3-stage vision pipeline, PSA/Beckett-calibrated), `grade_or_not` (GO / NO-GO with expected ROI) |
+| 🧾 **Public track record** | `oracle_scorecard` (30-day coverage on 181K+ matured forecasts, committed on-chain before outcomes), `check_accuracy` |
+| 🏦 **Card collateral** | `loan_terms_preview` (the Loan-Terms Oracle's six-step max-LTV derivation) |
+| 👻 **Souls & leagues** | `souls_in_wallet`, `soul_calls`, `fantasy_league` (4,444 AI personalities drafting weekly lineups), `sports_board` |
+| 🕹️ **The Syndicate** | `syndicate_state`, `syndicate_move`, `syndicate_leaderboard` — a turn-based strategy game agents can play |
+| 💬 **technocore.chat (read-only)** | `technocore_rooms`, `technocore_room`, `technocore_info`, `technocore_note` |
+| 🧭 **Routing** | `recommend_workflow` — describe a goal, get the call sequence |
+
+### The local agent kit — `undesirables-agent-kit`, 34 tools, runs on your machine
+
+Turns an Undesirable NFT soul workspace into a local agent: persistent memory graph and RAG over the soul files, meme / banner / image / video / 3D generation, Kokoro TTS, ACE Step music, DuckDuckGo search, SAST code auditing, Ollama prompting, sandboxed code and shell execution, and eBay market depth. It needs Ollama and a soul workspace — see [The Local Agent Kit](#-the-local-agent-kit-undesirables-agent-kit) below. The oracle needs none of that.
 
 ---
 
 <details>
-<summary><strong>What's New in v1.1.8</strong></summary>
+<summary><strong>What's New in v2.0.0</strong></summary>
 
-**v1.1.8** adds the FREE `card_forecast(card_name | product_id)` tool — one call returns the conformal 30-day price forecast **plus Safe-Hold & Momentum letter grades** and a one-line plain-English read (e.g. _"~12% chance it's below $Y in 30 days; Safe-Hold B, Momentum A"_). No payment required.
-
-The **conformal-calibrated risk forecast** is the default model — regime-aware split-conformal bands with honest VaR/CVaR, plus Safe-Hold & Momentum letter grades. Monte Carlo (GBM / Merton Jump-Diffusion) remains available opt-in via `model=`. Also: corrected license badge and full ecosystem integration.
-
-**Key Features:**
-- `purchase_undesirables_license_key` — Returns an unsigned EVM transaction payload (Ethereum Mainnet, chainId 1) for autonomous agents to mint directly from the Scatter.art contract
-- `verify_soul_initialization` — Verifies on chain purchase via public RPC and initializes the cryptographic soul matrix, unlocking all local compute engines
-- Verified on [Glama.ai](https://glama.ai/mcp/servers/sailorpepe/undesirables-mcp-server) with a 3.8/5 quality score across 36 tools
-- Listed on 9+ MCP directories including the [Official MCP Registry](https://registry.modelcontextprotocol.io)
+- **The oracle is the default server.** `undesirables-mcp` (and `undesirables-mcp-server`) now start the 23-tool TCG Oracle over stdio — the same tools as `https://mcp.the-undesirables.com`, with no keys, wallet, or local models.
+- **The agent kit has its own command.** The 34-tool local kit moved to `undesirables-agent-kit`. Nothing was removed; each server now has one job.
+- **Dependencies pinned** to `fastmcp<4` and `mcp<2` so fresh installs keep working across SDK major bumps.
+- Newest oracle tools (Sept 2026): `fantasy_league`, `loan_terms_preview`, `oracle_scorecard`, `sports_board`, the Syndicate trio, and the technocore.chat readers.
+- Carried over from v1.1.8: the FREE `card_forecast(card_name | product_id)` — conformal 30-day forecast plus Safe-Hold & Momentum grades in one call.
 
 </details>
 
 ---
 
-## 🛑 Prerequisites (Read Carefully)
-If you've never used Python or run AI Models locally, you **must** do this first:
-1. **[Download Python](https://www.python.org/downloads/)** (Version 3.10 or higher).
-2. **[Download Ollama](https://ollama.com/)**. **CRITICAL:** You cannot just download the app and leave it in your downloads folder. You must double-click the Ollama app to *physically run it*. You should see a little llama icon in your Mac menu bar or Windows system tray for this server to work. 
+## 🧰 The Local Agent Kit (`undesirables-agent-kit`)
 
----
+> Everything in this section is for the **agent kit only**. If you just want the oracle, you're already done: `uvx undesirables-mcp-server` (or the hosted URL above).
 
-## 🛠️ Step 1: Install & Clone
+### 🛑 Prerequisites
+1. **[Python](https://www.python.org/downloads/)** 3.10 or higher.
+2. **[Ollama](https://ollama.com/)** — download it *and run it*. The llama icon must be in your menu bar / taskbar, or local inference fails immediately.
+3. A **soul workspace** folder downloaded from [the-undesirables.com](https://the-undesirables.com) (for example `soul_folder/0420`).
 
-First, open your Terminal or Command Prompt and clone this repository. After cloning, you must activate a "Virtual Environment" (a sandbox folder just for this codebase).
+### 🛠️ Install
 
-### 🍎 On Mac / Linux
+```bash
+pip install undesirables-mcp-server
+```
+
+Or, to hack on it:
+
 ```bash
 git clone https://github.com/sailorpepe/undesirables-mcp-server.git
 cd undesirables-mcp-server
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv venv && source venv/bin/activate    # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 🪟 On Windows
+### 🚀 Boot
+
 ```bash
-git clone https://github.com/sailorpepe/undesirables-mcp-server.git
-cd undesirables-mcp-server
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
+# point --workspace at your EXACT soul folder
+undesirables-agent-kit --workspace "/Users/you/Desktop/soul_folder/0420"
 ```
 
----
+(From a clone: `python server.py --workspace ".../soul_folder/0420"`.) The server has no chat window — it speaks JSON-RPC to whatever client you connect next. Don't type into that terminal.
 
-## 🚀 Step 2: Boot The Server
+### 🔌 Connect Claude Desktop
 
-Every single time you want to run this server later, you must open your terminal and make sure your Virtual Environment is activated `(venv)` first!
+**Settings → Developer → Edit Config**, then:
 
-If you already downloaded your Soul Workspace from the website:
-```bash
-# Make sure to point to your EXACT soul folder path
-python server.py --workspace "/Users/username/Desktop/soul_folder/0420"
-```
-
----
-
-## 🔌 Step 3: Connect Your Chat Front-End
-
-The MCP Server doesn't have a chat window; it runs invisibly in the background of your terminal! To actually talk to your agent, you must connect it to a desktop application like Claude or Cursor.
-
-### Claude Desktop Connection
-1. Open the Claude Desktop application on your computer.
-2. Go to **Settings > Developer > Edit Config**.
-3. Paste this into your config file, making absolutely sure you replace the `cwd` (Current Working Directory) with your exact folder path:
 ```json
 {
   "mcpServers": {
-    "undesirables": {
-      "command": "python",
-      "args": ["server.py", "--workspace", "/Users/yourname/Desktop/soul_folder/0420"],
-      "cwd": "/Users/yourname/Documents/undesirables-mcp-server"
+    "undesirables-agent-kit": {
+      "command": "undesirables-agent-kit",
+      "args": ["--workspace", "/Users/you/Desktop/soul_folder/0420"]
     }
   }
 }
 ```
-4. Restart the Claude Desktop app. You should see a little "Plugin/Hammer" icon telling you that 34 The Undesirables tools are now available!
+
+Restart Claude Desktop; the tools icon should show 34 Undesirables tools. Cursor, Zed, and Windsurf take the same `command` / `args` shape.
+
+### 🎨 Local image generation (optional)
+
+The kit uses the 16 GB `FLUX.1-schnell` model for fully offline memes and illustrations. Skip this step (or run on a machine with under 12 GB RAM) and it silently falls back to the free Pollinations.ai cloud.
+
+- **Apple Silicon** uses `mflux`, which needs a Hugging Face token for Black Forest Labs' gated repo: accept the terms at [black-forest-labs/FLUX.1-schnell](https://huggingface.co/black-forest-labs/FLUX.1-schnell), create a **Read** token at [Hugging Face Tokens](https://huggingface.co/settings/tokens), then run `python -c "import huggingface_hub; huggingface_hub.login()"` and paste it.
+- **Nvidia CUDA / AMD DirectML** are detected automatically and use the ungated `shuttleai/FLUX.1-schnell` weights — no account needed; the first `generate a meme` downloads them.
+
+### ⚠️ Troubleshooting
+
+- **Ollama connection refused** — Ollama isn't running. Launch the app and check for the llama icon.
+- **ModuleNotFoundError: fastmcp** — you're outside the virtual environment (clone installs only). `source venv/bin/activate` first.
+- **Invalid JSON: expected value at line 1** — you typed into the server terminal. Leave it alone and talk through Claude Desktop / Cursor.
 
 ---
 
-## 🎨 Step 4: Setup Local Image Generation (Optional)
+## Technical Architecture (agent kit)
 
-If you want your agent to physically generate memes and illustrations 100% offline natively on your computer, the MCP Server uses the massively powerful 16GB `FLUX.1-schnell` model. 
+This section describes `undesirables-agent-kit`. (The oracle is a thin stdio wrapper over the same 23 tools the hosted endpoint serves; nothing below applies to it.)
 
-If you do not complete this step, or if your computer is too weak (< 12GB RAM), the server will automatically fallback and generate memes for you silently via the free `Pollinations.ai` cloud network.
-
-### 🍏 Authenticating Apple Silicon (Mac M1/M2/M3/M4)
-Apple Silicon specifically uses `mflux`, which strictly requires a Hugging Face token to bypass Black Forest Labs' legal compliance gate.
-1. Navigate to **[black-forest-labs/FLUX.1-schnell](https://huggingface.co/black-forest-labs/FLUX.1-schnell)**, create a free Hugging Face account, and click **Agree and Access**.
-2. Go to **[Hugging Face Tokens](https://huggingface.co/settings/tokens)** and generate a new **Read** token.
-3. Open your Mac terminal, activate your virtual environment, and log in:
-```bash
-cd undesirables-mcp-server
-source venv/bin/activate
-python -c "import huggingface_hub; huggingface_hub.login()"
-```
-4. Paste your token and press **Enter** *(your clipboard characters will be invisible for security)*.
-
-### 🪟 Setup for Windows/Linux GPUs
-If your computer uses Nvidia CUDA or AMD DirectML, the diagnostic scanner detects this and logically shifts your engine to an **ungated open-weights repository** (`shuttleai/FLUX.1-schnell`).
-- **You do not need to authenticate anything or make an account.**
-- Simply ask your agent to `generate a meme` in the UI! Your system will natively download the 16GB weights fully offline during the very first execution automatically.
-
----
-
-## ⚠️ Common Idiot-Proof Diagnostics
-
-If your terminal throws red text and halts, check these top 3 reasons:
-
-- **Error: Ollama connection refused**
-  Your AI's brain is offline! Make sure you physically double-clicked the **Ollama.app** on your computer. If the little llama icon isn't in your menu bar/taskbar, local inference will fail immediately.
-
-- **ModuleNotFoundError: no module named fastmcp**
-  You forgot to activate your Virtual Environment. You cannot just launch a fresh terminal and run `python server.py`. You must navigate to the folder and run `source venv/bin/activate` (Mac) or `venv\Scripts\activate` (Windows) first!
-
-- **Invalid JSON: expected value at line 1**
-  The Python terminal running the MCP Server is communicating in raw machine code (JSON-RPC). You cannot type plain English into that terminal window! Once it turns on, leave it alone. Open Claude Desktop or Cursor to chat with it.
-
----
-
-## Technical Architecture (For Developers)
-
-This MCP server exposes your local NFT soul via the [Model Context Protocol](https://modelcontextprotocol.io) standard.
+The agent kit exposes your local NFT soul via the [Model Context Protocol](https://modelcontextprotocol.io) standard.
 
 **Resources** (read only context your AI can access):
 - `soul://personality` — Big Five scores, archetype, strategy, fatal flaw
@@ -311,13 +272,13 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 
 async with MultiServerMCPClient({
     "undesirables": {
-        "command": "python",
-        "args": ["server.py", "--workspace", "/path/to/soul_folder/0420"],
-        "cwd": "/path/to/undesirables-mcp-server"
+        "command": "uvx",
+        "args": ["undesirables-mcp-server"]
     }
 }) as client:
     tools = client.get_tools()
-    # 23 oracle tools (or 34 agent-kit tools) now available to any LangChain agent
+    # the 23 oracle tools, now available to any LangChain agent
+    # (for the agent kit use command="undesirables-agent-kit", args=["--workspace", ".../soul_folder/0420"])
 ```
 
 ### CrewAI
@@ -326,14 +287,12 @@ from crewai import Agent
 from crewai_tools import MCPServerAdapter
 
 mcp = MCPServerAdapter(
-    command="python",
-    args=["server.py", "--workspace", "/path/to/soul_folder/0420"]
-)
+    command="uvx", args=["undesirables-mcp-server"])
 
 agent = Agent(
     role="NFT Card Grader",
     tools=mcp.tools,
-    goal="Grade trading cards and run Monte Carlo price simulations"
+    goal="Grade trading cards and run calibrated price forecasts"
 )
 ```
 
@@ -343,13 +302,11 @@ from agents import Agent
 from agents.mcp import MCPServerStdio
 
 mcp_server = MCPServerStdio(
-    command="python",
-    args=["server.py", "--workspace", "/path/to/soul_folder/0420"]
-)
+    command="uvx", args=["undesirables-mcp-server"])
 
 agent = Agent(
     name="Undesirables Agent",
-    instructions="You are an autonomous AI agent with NFT soul personality.",
+    instructions="You are a TCG market analyst. Use the oracle tools for prices, forecasts, and grading.",
     mcp_servers=[mcp_server]
 )
 ```
@@ -400,12 +357,12 @@ pip install litvm-tcg-oracle
 - **LitVM Oracle**: [the-undesirables.com/litvm](https://the-undesirables.com/litvm)
 - **Mint**: [scatter.art/the-undesirables](https://scatter.art/the-undesirables)
 - **Docs**: [the-undesirables.com/docs](https://the-undesirables.com/docs)
-- **PyPI (MCP)**: [undesirables-mcp-server](https://pypi.org/project/undesirables-mcp-server/) (v1.1.8)
-- **PyPI (LitVM)**: [litvm-tcg-oracle](https://pypi.org/project/litvm-tcg-oracle/) (v1.0.3)
-- **npm**: [plugin-undesirables](https://npmjs.com/package/plugin-undesirables) (ElizaOS plugin, v2.5.0)
+- **PyPI (MCP)**: [undesirables-mcp-server](https://pypi.org/project/undesirables-mcp-server/) (v2.0.0)
+- **PyPI (LitVM)**: [litvm-tcg-oracle](https://pypi.org/project/litvm-tcg-oracle/) (v1.0.7)
+- **npm**: [plugin-undesirables](https://npmjs.com/package/plugin-undesirables) (ElizaOS plugin, v2.7.0)
 - **Oracle API**: [oracle.the-undesirables.com](https://oracle.the-undesirables.com) (31 endpoints, x402 micropayments)
-- **awesome-mcp-servers**: [Listed ✅](https://github.com/punkpeye/awesome-mcp-servers) (85K+ ⭐)
-- **Glama**: [Verified ✅ 3.8/5](https://glama.ai/mcp/servers/sailorpepe/undesirables-mcp-server)
+- **awesome-mcp-servers**: [Listed ✅](https://github.com/punkpeye/awesome-mcp-servers) (94K+ ⭐, both servers listed)
+- **Glama**: [Verified ✅ — tool quality A, 23 tools](https://glama.ai/mcp/servers/sailorpepe/undesirables-mcp-server)
 - **ElizaOS Plugin**: [Official monorepo](https://github.com/elizaOS/eliza/tree/develop/plugins/plugin-undesirables)
 - **x402 Payment Server**: [undesirables-x402-server](https://github.com/sailorpepe/undesirables-x402-server)
 - **Kaggle Dataset**: [tcg-market-intelligence](https://www.kaggle.com/datasets/sailorpepe/tcg-market-intelligence)
