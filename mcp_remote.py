@@ -185,16 +185,19 @@ def search_tcg_products(
 @mcp.tool()
 def market_snapshot(game: str = "") -> dict:
     """
-    Daily TCG market snapshot with top movers, biggest gainers/losers,
-    and volume leaders across all 25 supported card games.
+    The DAY'S MARKET REPORT in one call, optionally for one game: biggest
+    gainers and losers by % change, volume leaders, and the per-game breakdown
+    across all 25 supported card games. A summary of the whole market, not a
+    ranked pick list.
 
     PAID: $0.025 USDC per call (x402 — USDC on Base or Solana, or USDG on
     Robinhood Chain). Previously documented as FREE, which was wrong: the server
     has always returned a 402 for this route. An autonomous caller budgeting off
     that docstring hit an unbudgeted paywall. (External audit 2026-07-30, BUG-2.)
 
-    Use this when: a user asks "what's trending in the card market?" or
-    "what cards are going up/down in value?"
+    Use this when: a user asks "what happened in the card market today?" or
+    "which games are moving?". For a ranked list of individual cards with a
+    risk row each, use trending_cards.
     """
     params = {}
     if game:
@@ -273,19 +276,18 @@ def simulate_price(
     simulations: int = 20000,
 ) -> dict:
     """
-    Predict future trading card value. The default model is the
-    conformal-calibrated risk forecast (deterministic drift + regime-aware
-    split-conformal bands, honest VaR/CVaR, plus Safe-Hold & Momentum letter
-    grades). Monte Carlo GBM and Merton jump-diffusion are available opt-in
-    via model="gbm" or model="merton".
-
-    Returns full forecast percentiles (5th–95th), model parameters,
-    and confidence intervals with complete mathematical transparency.
+    SIMULATE a card's price path over a horizon YOU choose (days=30..365,
+    default 90) and get the FULL distribution: 5th-95th percentiles, model
+    parameters, confidence intervals, and (opt-in) Monte Carlo GBM or Merton
+    jump-diffusion paths via model="gbm" / model="merton". Default model is the
+    conformal-calibrated risk forecast. Requires current_price.
 
     PAID: $0.015 USDC per call.
 
-    Use this when: a user wants to know "what will this card be worth
-    in 3 months?" or wants price trajectory predictions.
+    NOT the same as card_forecast: card_forecast is the FREE fixed 30-day
+    read with letter grades for one card; use simulate_price only when the
+    user wants a different horizon ("6 months out?"), the full percentile
+    curve, or a Monte Carlo model.
     """
     return _call_x402("/api/v1/simulate", {
         "card_name": card_name,
@@ -305,9 +307,9 @@ def card_forecast(
     product_id: int = 0,
 ) -> dict:
     """
-    Get the conformal-calibrated 30-day price forecast AND letter grades for a
-    single card in ONE free call. Pass either a card_name (resolved to the best
-    match) or a TCGplayer product_id.
+    The FREE 30-day read on ONE card: point forecast, bands, VaR, and the
+    Safe-Hold / Momentum letter grades, in one call. Pass a card_name (resolved
+    to the best match) or a TCGplayer product_id. Horizon is fixed at 30 days.
 
     FREE — no payment required. Returns an agent-complete object:
       price, as_of, regime, point (median 30d), move_pct, prob_up,
@@ -316,8 +318,9 @@ def card_forecast(
       drift_spike, image_url, card_url, and a one-line plain_english read
       (e.g. "~12% chance it's below $Y in 30 days; Safe-Hold B, Momentum A").
 
-    Use this when a user asks "is this card a safe hold?", "what's the 30-day
-    outlook?", "how risky is X?", or wants a quick grade on a card.
+    Use this FIRST for "is this card a safe hold?", "30-day outlook?", "how
+    risky is X?". For other horizons, the full percentile curve, or Monte
+    Carlo paths, escalate to simulate_price (paid).
     Tip: GET /api/v1/forecast (no args) returns the free board of the top ~200
     cards if the user wants a market overview.
     """
@@ -343,22 +346,24 @@ def trending_cards(
     min_price: float = 0.0,
 ) -> dict:
     """
-    Top trading cards by PRICE VELOCITY (drift), highest absolute movement first.
+    A RANKED LIST of individual cards by PRICE VELOCITY (drift), highest
+    absolute movement first, with the conformal risk row (bands, VaR, grades)
+    attached to each card. Filter by game, limit, and min_price. Built for
+    picking cards, not for summarizing the market.
 
     NOTE (corrected 2026-07-30): this previously claimed "30-day sales volume".
     Sales volume and view counts are NOT in the dataset and the API itself now
     explicitly disclaims them — see `ranked_by` in the response.
 
-    Each row carries the same conformal risk model the free /api/v1/forecast
-    board uses. Band and VaR PERCENTAGES are regime-level constants by design
-    (regime-aware split conformal), so cards in the same regime share them;
-    absolute values differ per card. Do not read it as a per-card fit.
-    Covers all 25+ supported TCG games.
+    Band and VaR PERCENTAGES are regime-level constants by design (regime-aware
+    split conformal), so cards in the same regime share them; absolute values
+    differ per card. Do not read it as a per-card fit. Covers all 25+ games.
 
     PAID: $0.025 USDC per call.
 
-    Use this when: a user asks "what cards are hot right now?" or
-    "what's selling the most?"
+    Use this when: a user asks "which cards are moving fastest right now?" and
+    wants names to act on. For the day's whole-market summary (gainers/losers
+    by game, volume leaders) use market_snapshot.
     """
     params = {"limit": min(limit, 100)}
     if game:
@@ -440,14 +445,12 @@ def recommend_workflow(goal: str) -> dict:
 @mcp.tool()
 def check_accuracy(game: str = "") -> dict:
     """
-    View TCG Oracle's public prediction accuracy dashboard.
-    Shows mean absolute error, hit rates, grade distribution,
-    and recent prediction reports.
+    DEPRECATED alias of oracle_scorecard — kept so older agents keep working.
+    Returns exactly the same public accuracy scorecard (30-day conformal
+    coverage, souls' on-chain track record, blind slab study). The `game`
+    argument is accepted but not applied. FREE.
 
-    FREE — no payment required.
-
-    Use this when: a user asks "how accurate is the grading AI?"
-    or wants to verify the model's track record.
+    New callers: use oracle_scorecard. This alias will be removed in 2.1.
     """
     params = {}
     if game:
@@ -742,16 +745,17 @@ def loan_terms_preview(product_id: int, term_days: int = 30) -> dict:
 @mcp.tool()
 def oracle_scorecard() -> dict:
     """
-    The oracle's public accuracy scorecard — check us before trusting us.
-    FREE. Returns the rolling 30-day conformal coverage on matured price
-    forecasts (do the 90% bands actually cover 90%? recent: 93.3% over
-    181K+ graded predictions), the souls' on-chain scored track record, and
-    the blind slab-grading study. Every scored prediction was
-    merkle-committed to Base + LiteForge BEFORE its outcome existed, so this
-    table cannot be curated after the fact.
+    The oracle's HEADLINE scorecard, all games combined — check us before
+    trusting us. FREE, no arguments. Returns the rolling 30-day conformal
+    coverage on matured price forecasts (do the 90% bands actually cover 90%?
+    recent: 93.3% over 181K+ graded predictions), the souls' on-chain scored
+    track record, and the blind slab-grading study. Every scored prediction
+    was merkle-committed to Base + LiteForge BEFORE its outcome existed, so
+    this table cannot be curated after the fact.
 
-    Use this when: an agent wants evidence the calibration claims are real,
-    or a trust-but-verify check before paying for forecasts or loan terms.
+    Use this when: an agent wants evidence the calibration claims are real, or
+    a trust-but-verify check before paying for forecasts or loan terms. For a
+    single game's breakdown use check_accuracy(game=...).
     """
     try:
         return _call_x402("/api/v1/accuracy", {})
@@ -785,11 +789,13 @@ def sports_board(league: str = "", limit: int = 10) -> dict:
 @mcp.tool()
 def technocore_rooms(limit: int = 50) -> dict:
     """
-    List rooms on technocore.chat — the agent-to-agent chat/notes server
-    for the upcoming Flop Network (agent economy L1). FREE, read-only.
+    technocore.chat reader 1/4 — LIST the rooms. technocore.chat is the
+    agent-to-agent chat/notes server for the upcoming Flop Network (agent
+    economy L1). FREE, read-only, no arguments.
 
-    Use this when: an agent wants to discover where other agents are
-    coordinating, or explore the technocore ecosystem.
+    Start here to discover room names; then technocore_room (messages),
+    technocore_note (a shared key-value note), or technocore_info (API docs +
+    our signed price-proof feed).
     """
     try:
         # /rooms?format=json verified live 2026-08-26: {"rooms":[{room,
@@ -824,11 +830,12 @@ def technocore_rooms(limit: int = 50) -> dict:
 @mcp.tool()
 def technocore_room(room: str, limit: int = 20) -> dict:
     """
-    Read the recent messages in one technocore.chat room. FREE, read-only —
-    this tool is structurally incapable of posting.
+    technocore.chat reader 2/4 — READ the recent MESSAGES in one named room.
+    FREE, read-only — structurally incapable of posting.
 
-    Use this when: an agent wants to follow a technocore room's conversation
-    (e.g. Flop Network testnet/faucet announcements) without joining.
+    Use this when: an agent wants to follow one room's conversation (e.g. Flop
+    Network testnet/faucet announcements) without joining. Get room names from
+    technocore_rooms; for published state values use technocore_note instead.
     """
     try:
         room = str(room).strip().strip("/")
@@ -848,11 +855,12 @@ def technocore_room(room: str, limit: int = 20) -> dict:
 @mcp.tool()
 def technocore_note(namespace: str, key: str = "") -> dict:
     """
-    Read a shared key-value note from technocore.chat — the way agents
-    publish state for other agents. FREE, read-only.
+    technocore.chat reader 3/4 — READ one shared KEY-VALUE NOTE (namespace +
+    key), the way agents publish state for other agents. FREE, read-only.
 
-    Use this when: an agent needs a value another agent published to a
-    technocore namespace (config, observations, coordination state).
+    Use this when: an agent needs a value another agent published (config,
+    observations, coordination state). Not for conversation — that is
+    technocore_room.
     """
     try:
         ns = str(namespace).strip().strip("/")
@@ -869,14 +877,13 @@ def technocore_note(namespace: str, key: str = "") -> dict:
 @mcp.tool()
 def technocore_info() -> dict:
     """
-    Technocore.chat server documentation surface (llms.txt) plus what this
-    integration is: read-only technocore access inside the TCG Oracle MCP.
-    FREE.
+    technocore.chat reader 4/4 — the server's API DOCS (llms.txt), what this
+    read-only integration can and cannot do, and proof_feed: this oracle's own
+    verifiable price feed on technocore (/r/d-undsr-oracle — signed,
+    chain-anchored, checkable by anyone). FREE, no arguments.
 
-    Use this when: an agent wants to learn the technocore API itself, or
-    how to interact with the Flop Network agent ecosystem. Also returns
-    proof_feed: this oracle's own verifiable price feed on technocore
-    (/r/d-undsr-oracle — signed, chain-anchored, checkable by anyone).
+    Use this when: an agent wants to learn the technocore API itself or verify
+    our feed. For rooms, messages, or notes use the other three readers.
     """
     try:
         return {"status": "ok", "server": "https://technocore.chat",
