@@ -347,7 +347,7 @@ pip install litvm-tcg-oracle
 | **13.5M+ price observations** | 60+ days of continuous data |
 | **On-chain Merkle proofs** | Trustless verification on LiteForge (Chain 4441) |
 | **Risk forecast** | Conformal-calibrated VaR/CVaR + Safe-Hold/Momentum grades (Monte Carlo opt-in) |
-| **6 MCP tools** | `search_cards`, `get_price_history`, `verify_price`, `oracle_status`, `simulate_price`, `grade_card` |
+| **13 MCP tools** | `search_cards`, `get_price`, `get_merkle_proof`, `get_graded_proof`, `oracle_status`, `get_forecast`, `simulate_price`, `get_market_snapshot`, `get_fantasy_league`, `get_oracle_scorecard`, `get_loan_terms_preview`, `get_sports_board`, `get_census_summary` — also hosted at `https://litvm.the-undesirables.com/mcp` |
 
 → **GitHub**: [litvm-tcg-oracle-mcp](https://github.com/sailorpepe/litvm-tcg-oracle-mcp)  
 → **PyPI**: [litvm-tcg-oracle](https://pypi.org/project/litvm-tcg-oracle/)  
