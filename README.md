@@ -62,7 +62,7 @@ Settings → Connectors → + Custom Connector → Remote).
 
 Tools: `search_tcg_products`, `market_snapshot`, `grade_card`, `grade_or_not`,
 `simulate_price`, `card_forecast`, `trending_cards`, `optimize_portfolio`,
-`recommend_workflow`, `check_accuracy`.
+`recommend_workflow`, `oracle_scorecard` (`check_accuracy` is a deprecated alias).
 
 Search is set-aware — `search_tcg_products("Base Set Charizard")` separates Base Set,
 Base Set 2, and Shadowless rather than returning every Charizard printing. Every result
@@ -101,7 +101,7 @@ Claude Desktop / Cursor / Zed — add the oracle as a stdio server:
 ## Table of Contents
 
 - [What It Does](#what-it-does)
-- [What's New in v2.0.0](#whats-new-in-v200)
+- [What's New](#whats-new-in-v201--v200)
 - [The Local Agent Kit](#-the-local-agent-kit-undesirables-agent-kit)
 - [Technical Architecture (agent kit)](#technical-architecture-agent-kit)
 - [Agent Framework Integration](#agent-framework-integration)
@@ -122,7 +122,7 @@ The same 23 tools the hosted endpoint serves, over stdio. Free tools answer dire
 | 🔎 **Search & prices** | `search_tcg_products` (455K+ products, 25+ games, set-aware), `market_snapshot`, `trending_cards` |
 | 📊 **Forecasts & risk** | `card_forecast` (FREE: conformal 30-day forecast + Safe-Hold / Momentum letter grades), `simulate_price` (Monte Carlo GBM / Merton paths), `optimize_portfolio` |
 | 🎴 **Grading** | `grade_card` (3-stage vision pipeline, PSA/Beckett-calibrated), `grade_or_not` (GO / NO-GO with expected ROI) |
-| 🧾 **Public track record** | `oracle_scorecard` (30-day coverage on 181K+ matured forecasts, committed on-chain before outcomes), `check_accuracy` |
+| 🧾 **Public track record** | `oracle_scorecard` (30-day coverage on 181K+ matured forecasts, committed on-chain before outcomes); `check_accuracy` is a deprecated alias |
 | 🏦 **Card collateral** | `loan_terms_preview` (the Loan-Terms Oracle's six-step max-LTV derivation) |
 | 👻 **Souls & leagues** | `souls_in_wallet`, `soul_calls`, `fantasy_league` (4,444 AI personalities drafting weekly lineups), `sports_board` |
 | 🕹️ **The Syndicate** | `syndicate_state`, `syndicate_move`, `syndicate_leaderboard` — a turn-based strategy game agents can play |
@@ -136,7 +136,9 @@ Turns an Undesirable NFT soul workspace into a local agent: persistent memory gr
 ---
 
 <details>
-<summary><strong>What's New in v2.0.0</strong></summary>
+<summary><strong>What's New in v2.0.1 / v2.0.0</strong></summary>
+
+**2.0.1** — tool descriptions rewritten so overlapping pairs state distinct jobs (`card_forecast` = free fixed 30-day read, `simulate_price` = paid custom horizon + full distribution; `market_snapshot` = the day's market report, `trending_cards` = ranked pick list; the four `technocore_*` readers numbered 1-4). `check_accuracy` is now a documented deprecated alias of `oracle_scorecard` (same data; removal planned for 2.1).
 
 - **The oracle is the default server.** `undesirables-mcp` (and `undesirables-mcp-server`) now start the 23-tool TCG Oracle over stdio — the same tools as `https://mcp.the-undesirables.com`, with no keys, wallet, or local models.
 - **The agent kit has its own command.** The 34-tool local kit moved to `undesirables-agent-kit`. Nothing was removed; each server now has one job.
