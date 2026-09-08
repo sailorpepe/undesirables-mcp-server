@@ -64,5 +64,7 @@ scripts/tmp_history/
 scripts/tmp_archives/
 scripts/data/tcg_stats.json
 
-# ops tooling for the Mac Mini — never publish (David, 2026-09-08)
-scripts/stack_healthcheck.py
+# ops tooling for the Mac Mini — never publish (David, 2026-09-08).
+# These run the pipeline on one machine; they are not part of the package
+# (no scripts/ in the wheel or sdist) and nothing in the package imports them.
+scripts/
