@@ -369,7 +369,8 @@ pip install litvm-tcg-oracle
 - **Glama**: [Verified ✅ — tool quality A, 22 tools](https://glama.ai/mcp/servers/sailorpepe/undesirables-mcp-server)
 - **ElizaOS Plugin**: [Official monorepo](https://github.com/elizaOS/eliza/tree/develop/plugins/plugin-undesirables)
 - **x402 Payment Server**: [undesirables-x402-server](https://github.com/sailorpepe/undesirables-x402-server)
-- **Kaggle Dataset**: [tcg-market-intelligence](https://www.kaggle.com/datasets/sailorpepe/tcg-market-intelligence)
+- **Price data**: originates with TCGplayer. No rights claimed in the underlying prices;
+  the modelling and on-chain proofs are ours.
 - **X**: [@undesirables_ai](https://x.com/undesirables_ai)
 
 ---

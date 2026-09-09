@@ -68,3 +68,8 @@ scripts/data/tcg_stats.json
 # These run the pipeline on one machine; they are not part of the package
 # (no scripts/ in the wheel or sdist) and nothing in the package imports them.
 scripts/
+
+# Raw price exports. These are the TCGplayer-derived rows the public dataset
+# used to carry; the dataset was deleted 2026-09-09 and these must never be
+# committed to a public repo. 1.1 GB of price history sits here between runs.
+kaggle_dataset/*.csv
