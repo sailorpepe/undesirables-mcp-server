@@ -343,7 +343,7 @@ pip install litvm-tcg-oracle
 
 | Feature | Detail |
 |---------|--------|
-| **446K+ trading cards** | 25+ games, 284K actively priced |
+| **456K+ trading cards** | 25+ games, 290K actively priced |
 | **13.5M+ price observations** | 60+ days of continuous data |
 | **On-chain Merkle proofs** | Trustless verification on LiteForge (Chain 4441) |
 | **Risk forecast** | Conformal-calibrated VaR/CVaR + Safe-Hold/Momentum grades (Monte Carlo opt-in) |
@@ -421,3 +421,11 @@ Building a commercial product? Want guaranteed API access or white-label integra
 [Report Bug](../../issues) · [Request Feature](../../issues)
 
 </div>
+
+## Data freshness
+
+USD market prices originate from TCGPlayer. **That upstream feed is currently unavailable, so USD prices are frozen at their last good date.** Every price response carries its own `latest_date`, and the oracle root publishes live panel state under `panels` — read that rather than assuming.
+
+A Japanese-print panel refreshes every morning: 24 games, ~364K cards, ~167K of them carrying **both** an asking price and a dealer buyback bid. Graded comps, sports boards and the proof layer are unaffected.
+
+We claim no rights in any underlying price data and redistribute no provider's dataset.
