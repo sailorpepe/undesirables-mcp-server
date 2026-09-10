@@ -50,7 +50,7 @@ mcp = FastMCP(
     "TCG Oracle",
     instructions=(
         "Financial intelligence API for the $50B+ trading card market. "
-        "Search 449K+ products across 25+ games, grade card images with AI, "
+        "Search 456K+ products across 25+ games, grade card images with AI, "
         "forecast prices with a conformal-calibrated risk model (Monte Carlo opt-in), and get ROI verdicts "
         "on whether to send cards for professional grading. "
         "All data comes from TCGCSV daily market snapshots and real-time analysis."
@@ -152,7 +152,13 @@ def search_tcg_products(
     limit: int = 10,
 ) -> dict:
     """
-    Search 449K+ TCG products across 25+ card games.
+    Search 456K+ TCG products across 25+ card games.
+
+    FRESHNESS: USD prices are currently FROZEN at their last good date — the
+    upstream feed is unavailable. Every price carries its own as-of date and
+    the oracle root publishes live panel state under `panels`. A Japanese-print
+    panel (24 games, ~364K cards, ~167K with BOTH an ask and a dealer buyback
+    bid) refreshes every morning. Do not present a USD price as current.
     Returns card names and IDs, plus current market prices.
     FREE — no payment required.
 
@@ -937,11 +943,15 @@ is working.</p>
 <p>Add it to an MCP client (Claude Desktop, Cursor, Windsurf, VS Code, Perplexity):</p>
 <pre>https://{PUBLIC_HOST}</pre>
 <p class=n>No install. No API key. No account.</p>
-<p>You get {len(mcp._tool_manager.list_tools())} tools over 449K+ trading-card products across 25+ games:
+<p>You get {len(mcp._tool_manager.list_tools())} tools over 456K+ trading-card products across 25+ games:
 free search, market snapshots, price forecasts and accuracy stats; paid tools
 (AI card grading, conformal risk forecasts, portfolio optimisation) answer with an
 x402 payment request in USDC on Base, so a funded agent can settle and retry —
 still no signup.</p>
+<p class=n><b>Data freshness:</b> USD prices are currently frozen at their last
+good date — the upstream feed is unavailable. Every price carries its own as-of
+date. A Japanese-print panel (24 games, ~364K cards, ~167K with both an ask and a
+dealer buyback bid) refreshes every morning.</p>
 <p><a href="https://oracle.the-undesirables.com/docs">REST API docs</a> ·
 <a href="https://the-undesirables.com">the-undesirables.com</a></p>"""
 
