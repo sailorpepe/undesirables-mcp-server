@@ -24,8 +24,15 @@ tcg_daily_snapshot:
     - export PATH="/opt/homebrew/bin:$PATH"
     - python3 --version
     - 7za --version || echo "WARNING 7za not found"
-    - git config --global user.name "gitlab-ci[bot]"
-    - git config --global user.email "ci-bot@gitlab.com"
+    # --local, NEVER --global. This runner uses the SHELL executor, so it runs as
+    # the machine's own user and `--global` rewrites ~/.gitconfig for everything
+    # on the box. That is what silently reset the operator's identity to
+    # gitlab-ci[bot] on 2026-08-12, 2026-08-29, 2026-09-08 and twice on
+    # 2026-09-10 — every commit made afterwards in any repo without a local
+    # override was authored by nobody and earned no contribution credit. The CI
+    # job only ever needs an identity for the repo it is standing in.
+    - git config --local user.name "gitlab-ci[bot]"
+    - git config --local user.email "ci-bot@gitlab.com"
     - git checkout $CI_COMMIT_REF_NAME || git checkout -b $CI_COMMIT_REF_NAME
     - git pull origin $CI_COMMIT_REF_NAME --rebase || true
 
