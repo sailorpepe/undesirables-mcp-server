@@ -505,7 +505,9 @@ def soul_calls(token_id: int) -> dict:
     known. That is what makes the record checkable rather than claimed.
 
     Args:
-        token_id: minted soul, 1-273.
+        token_id: a minted soul. Valid ids run 1..total_minted, where
+            total_minted is read live from GET / on the oracle (274 on
+            2026-09-12; it grows as souls mint — never hardcode it).
     """
     return _call_x402(f"/api/v1/soul-rating/{token_id}", {})
 
