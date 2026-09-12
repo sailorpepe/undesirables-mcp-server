@@ -985,7 +985,7 @@ still no signup.</p>
 <p class=n><b>Data freshness:</b> USD prices are currently frozen at their last
 good date — the upstream feed is unavailable. Every price carries its own as-of
 date. A Japanese-print panel (24 games, ~364K cards, ~167K with both an ask and a
-dealer buyback bid) refreshes every morning. Four tools — market snapshot, simulate, trending, portfolio — are <b>suspended</b> while the USD panel is frozen: they answer <code>{"status":"suspended"}</code> and do not charge. The Japanese two-sided board and graded-slab panels refresh daily.</p>
+dealer buyback bid) refreshes every morning. Four tools — market snapshot, simulate, trending, portfolio — are <b>suspended</b> while the USD panel is frozen: they answer <code>{{"status":"suspended"}}</code> and do not charge. The Japanese two-sided board and graded-slab panels refresh daily.</p>
 <p><a href="https://oracle.the-undesirables.com/docs">REST API docs</a> ·
 <a href="https://the-undesirables.com">the-undesirables.com</a></p>"""
 
