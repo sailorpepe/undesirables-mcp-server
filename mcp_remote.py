@@ -53,7 +53,7 @@ mcp = FastMCP(
         "Search 456K+ products across 25+ games, grade card images with AI, "
         "forecast prices with a conformal-calibrated risk model (Monte Carlo opt-in), and get ROI verdicts "
         "on whether to send cards for professional grading. "
-        "All data comes from TCGCSV daily market snapshots and real-time analysis."
+        "USD prices come from a daily market panel that froze on 2026-09-07 (responses carry usd_panel); Japanese two-sided quotes, graded slabs, census and sports refresh daily."
     ),
     # Surfaced on directory listing cards (Smithery scans this over the wire).
     # FastMCP exposes no `version` kwarg, so serverInfo.version reports the mcp
@@ -977,14 +977,15 @@ is working.</p>
 <pre>https://{PUBLIC_HOST}</pre>
 <p class=n>No install. No API key. No account.</p>
 <p>You get {len(mcp._tool_manager.list_tools())} tools over 456K+ trading-card products across 25+ games:
-free search, market snapshots, price forecasts and accuracy stats; paid tools
-(AI card grading, conformal risk forecasts, portfolio optimisation) answer with an
+free search (USD prices dated in-band, frozen since 2026-09-07), sports boards, souls,
+the slab census, graded asks and accuracy stats; paid tools (AI card grading, graded-slab
+loan terms, sports forecasts, the crypto oracle) answer with an
 x402 payment request in USDC on Base, so a funded agent can settle and retry —
 still no signup.</p>
 <p class=n><b>Data freshness:</b> USD prices are currently frozen at their last
 good date — the upstream feed is unavailable. Every price carries its own as-of
 date. A Japanese-print panel (24 games, ~364K cards, ~167K with both an ask and a
-dealer buyback bid) refreshes every morning.</p>
+dealer buyback bid) refreshes every morning. Four tools — market snapshot, simulate, trending, portfolio — are <b>suspended</b> while the USD panel is frozen: they answer <code>{"status":"suspended"}</code> and do not charge. The Japanese two-sided board and graded-slab panels refresh daily.</p>
 <p><a href="https://oracle.the-undesirables.com/docs">REST API docs</a> ·
 <a href="https://the-undesirables.com">the-undesirables.com</a></p>"""
 
