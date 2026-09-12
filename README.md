@@ -74,7 +74,7 @@ carries a `set` field and a `product_id` you can pass straight to the other tool
 
 | Command | What it exposes | For |
 |---|---|---|
-| `undesirables-mcp` (default) | **The TCG Oracle — 22 tools**: search 455K+ cards, market snapshots, AI grading & grade-or-not, conformal-calibrated forecasts with a public accuracy scorecard, portfolio optimisation, card-collateral loan terms, fantasy & sports souls, the Syndicate, Technocore rooms. Backed by the public oracle API. | Anyone who wants the oracle in Claude Desktop, Cursor, Zed, LangChain… |
+| `undesirables-mcp` (default) | **The TCG Oracle — 22 tools**: search 456K+ cards (USD prices frozen 2026-09-07 — responses carry `usd_panel`), market snapshots (suspended while frozen), AI grading & grade-or-not, conformal-calibrated forecasts with a public accuracy scorecard, portfolio optimisation, card-collateral loan terms, fantasy & sports souls, the Syndicate, Technocore rooms. Backed by the public oracle API. | Anyone who wants the oracle in Claude Desktop, Cursor, Zed, LangChain… |
 | `undesirables-agent-kit` | **The local agent kit — 34 tools**: memory graph, RAG over a soul workspace, meme/banner/video/3D generation, voice, code & shell execution, security audits, web search. Runs entirely on your machine. | Undesirables holders running their soul as a local agent |
 
 v1.x shipped both surfaces under one command; v2 separates them so each server has one job. The hosted endpoint is unchanged.
@@ -120,7 +120,9 @@ The same 22 tools the hosted endpoint serves, over stdio. Free tools answer dire
 | Area | Tools |
 |---|---|
 | 🔎 **Search & prices** | `search_tcg_products` (455K+ products, 25+ games, set-aware), `market_snapshot`, `trending_cards` |
-| 📊 **Forecasts & risk** | `card_forecast` (FREE: conformal 30-day forecast + Safe-Hold / Momentum letter grades), `simulate_price` (Monte Carlo GBM / Merton paths), `optimize_portfolio` |
+> **USD panel frozen 2026-09-07.** `market_snapshot`, `simulate_price`, `trending_cards` and `optimize_portfolio` are suspended (the oracle returns `{"status":"suspended"}` and does not charge); `card_forecast` and `search_tcg_products` serve the last published USD numbers and say so in-band. Live: graded-slab loan terms, sports, souls, census, crypto, Japanese two-sided quotes.
+
+| 📊 **Forecasts & risk** | `card_forecast` (FREE: conformal 30-day forecast + Safe-Hold / Momentum letter grades), `simulate_price` (**suspended while the USD panel is frozen** — answers `{status: suspended}`, no charge; Monte Carlo GBM / Merton paths), `optimize_portfolio` |
 | 🎴 **Grading** | `grade_card` (3-stage vision pipeline, PSA/Beckett-calibrated), `grade_or_not` (GO / NO-GO with expected ROI) |
 | 🧾 **Public track record** | `oracle_scorecard` (30-day coverage on 181K+ matured forecasts, committed on-chain before outcomes) |
 | 🏦 **Card collateral** | `loan_terms_preview` (the Loan-Terms Oracle's six-step max-LTV derivation) |
