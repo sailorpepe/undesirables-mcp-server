@@ -1082,7 +1082,7 @@ def grade_tcg_card(card_image_paths: str, card_name: str = "Unknown Card") -> st
     primary_image = b64_images[0]
         
     # --- RAG: TCG Market Depth & Merton Jump-Diffusion Pre-loading ---
-    market_context = "No live TCGCSV price history found in SQLite memory array."
+    market_context = "No USD price history found in SQLite memory array."
     mu_override = "null"
     sigma_override = "null"
     
