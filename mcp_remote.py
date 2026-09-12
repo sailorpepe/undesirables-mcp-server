@@ -152,6 +152,8 @@ def search_tcg_products(
     limit: int = 10,
 ) -> dict:
     """
+    NOTE 2026-09-12: USD market prices in results are FROZEN at 2026-09-07 (feed
+    stopped); the response carries usd_panel {frozen, as_of}. Names/ids are current.
     Search 456K+ TCG products across 25+ card games.
 
     FRESHNESS: USD prices are currently FROZEN at their last good date — the
@@ -191,6 +193,12 @@ def search_tcg_products(
 @mcp.tool()
 def market_snapshot(game: str = "") -> dict:
     """
+    SUSPENDED 2026-09-12: the USD price panel behind this tool froze on
+    2026-09-07. The oracle answers 200 {"status": "suspended"} with the reason,
+    resume condition and live alternatives, and does NOT charge. The tool is
+    kept so it resumes automatically the day a live USD series exists. Prefer:
+    loan_terms_preview (graded slabs, live), sports_board (live), or the free
+    Japanese two-sided page /jp/card/{game}/{set}/{card}.
     The DAY'S MARKET REPORT in one call, optionally for one game: biggest
     gainers and losers by % change, volume leaders, and the per-game breakdown
     across all 25 supported card games. A summary of the whole market, not a
@@ -282,6 +290,12 @@ def simulate_price(
     simulations: int = 20000,
 ) -> dict:
     """
+    SUSPENDED 2026-09-12: the USD price panel behind this tool froze on
+    2026-09-07. The oracle answers 200 {"status": "suspended"} with the reason,
+    resume condition and live alternatives, and does NOT charge. The tool is
+    kept so it resumes automatically the day a live USD series exists. Prefer:
+    loan_terms_preview (graded slabs, live), sports_board (live), or the free
+    Japanese two-sided page /jp/card/{game}/{set}/{card}.
     SIMULATE a card's price path over a horizon YOU choose (days=30..365,
     default 90) and get the FULL distribution: 5th-95th percentiles, model
     parameters, confidence intervals, and (opt-in) Monte Carlo GBM or Merton
@@ -313,6 +327,9 @@ def card_forecast(
     product_id: int = 0,
 ) -> dict:
     """
+    FROZEN INPUTS since 2026-09-07: the USD price series stopped, so this read
+    is issued from the last published price and the response carries a
+    top-level usd_panel {frozen: true, as_of}. Say "last published", never "today".
     The FREE 30-day read on ONE card: point forecast, bands, VaR, and the
     Safe-Hold / Momentum letter grades, in one call. Pass a card_name (resolved
     to the best match) or a TCGplayer product_id. Horizon is fixed at 30 days.
@@ -352,6 +369,12 @@ def trending_cards(
     min_price: float = 0.0,
 ) -> dict:
     """
+    SUSPENDED 2026-09-12: the USD price panel behind this tool froze on
+    2026-09-07. The oracle answers 200 {"status": "suspended"} with the reason,
+    resume condition and live alternatives, and does NOT charge. The tool is
+    kept so it resumes automatically the day a live USD series exists. Prefer:
+    loan_terms_preview (graded slabs, live), sports_board (live), or the free
+    Japanese two-sided page /jp/card/{game}/{set}/{card}.
     A RANKED LIST of individual cards by PRICE VELOCITY (drift), highest
     absolute movement first, with the conformal risk row (bands, VaR, grades)
     attached to each card. Filter by game, limit, and min_price. Built for
@@ -402,6 +425,12 @@ def optimize_portfolio(
     days: int = 90,
 ) -> dict:
     """
+    SUSPENDED 2026-09-12: the USD price panel behind this tool froze on
+    2026-09-07. The oracle answers 200 {"status": "suspended"} with the reason,
+    resume condition and live alternatives, and does NOT charge. The tool is
+    kept so it resumes automatically the day a live USD series exists. Prefer:
+    loan_terms_preview (graded slabs, live), sports_board (live), or the free
+    Japanese two-sided page /jp/card/{game}/{set}/{card}.
     Optimize a trading card portfolio using Markowitz mean-variance
     analysis with Merton jump-diffusion Monte Carlo simulations.
 
@@ -707,26 +736,28 @@ def fantasy_league(token_id: int = 0) -> dict:
 
 
 @mcp.tool()
-def loan_terms_preview(product_id: int, term_days: int = 30) -> dict:
+def loan_terms_preview(product_id: int, term_days: int = 30, grade: str = "") -> dict:
     """
-    FREE worked derivation of safe lending terms for a trading card on
-    today's published free board (250 cards): value -> calibrated 99% tail ->
-    liquidation buffer -> liquidity cap -> max LTV, all six steps shown with
-    the price source and merkle proof links. term_days: 7, 14 or 30.
-
-    Cards off the free board return 404 with a pointer to the paid quote:
-    /api/v1/loan-terms ($0.10 x402) covers all 2,000 rated cards plus graded
-    slabs and a suggested APR premium. The rated universe is public at
-    /api/v1/loan-terms/universe. Informational only — not financial advice.
-
-    Use this when: an agent wants collateral math for a card, or to explain
+    FREE worked derivation of safe lending terms for a GRADED SLAB (v2,
+    2026-09-12): live slab value (realized sales > delisting-inferred sales >
+    ask median x 0.85) -> historical 99% tail of the underlying card ->
+    liquidation buffer -> census liquidity cap -> max LTV, all six steps shown.
+    grade e.g. "PSA 10"; omitted = the slab's deepest-census grade. term_days:
+    7, 14 or 30. Only free-board slabs (top 250 by census depth) return the
+    derivation; others return 404 pointing at the paid quote /api/v1/loan-terms
+    ($0.10 x402, ~1,100 rated slabs). Raw-card quotes are no longer issued —
+    the USD level froze 2026-09-07. Universe: /api/v1/loan-terms/universe.
+    Informational only — not financial advice.
+    Use this when: an agent wants collateral math for a slab, or to explain
     how the Loan-Terms Oracle derives an LTV before paying for a full quote.
     Human page: https://oracle.the-undesirables.com/lending
     """
     try:
         td = int(term_days) if int(term_days) in (7, 14, 30) else 30
-        return _call_x402(f"/api/v1/loan-terms/preview/{int(product_id)}",
-                          {"term_days": td})
+        params = {"term_days": td}
+        if grade:
+            params["grade"] = grade
+        return _call_x402(f"/api/v1/loan-terms/preview/{int(product_id)}", params)
     except Exception as e:
         return {"status": "error", "detail": str(e)[:200]}
 
