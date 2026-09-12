@@ -462,7 +462,7 @@ def souls_in_wallet(address: str, calls: int = 5) -> dict:
     HOW IT WORKS
       • Ownership is read from Ethereum mainnet (ERC-721
         0xA893648A701C03B14bF2FB767B72b2C55ed5c17A). Only the minted souls
-        1-273 have public records.
+        1..total_minted (from GET / on the oracle) have public records.
       • Nothing here is private, so you can look up ANY address — the caller
         does not have to prove they own it. Ask the user for their address.
       • Each minted soul locks 3 card predictions weekly, chosen deterministically
