@@ -923,7 +923,12 @@ def grade_tcg_card(card_image_paths: str, card_name: str = "Unknown Card") -> st
                 # TCGPlayer CDN uses Cloudflare JS challenges — try alternate URL patterns
                 _urls_to_try = [raw_p]
                 if "tcgplayer" in raw_p.lower():
-                    import re
+                    # NOTE: no local `import re` here — a function-local import
+                    # makes `re` local to the WHOLE function scope, so the
+                    # <analysis> parse at the end raised UnboundLocalError for
+                    # every non-TCGPlayer image (caught 2026-08-31 by the
+                    # grading validation study's first two cases). Module-level
+                    # import re covers this.
                     # Try without size suffix: product/489027_200w.jpg → product/489027.jpg
                     no_size = re.sub(r'_\d+w\.', '.', raw_p)
                     if no_size != raw_p:
