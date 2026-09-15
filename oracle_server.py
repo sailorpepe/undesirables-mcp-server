@@ -26,7 +26,7 @@ security audits — 34 tools) lives in server.py and is a separate entry point:
 """
 import sys
 
-from mcp_remote import mcp  # the 22 oracle tools, registered once, shared with the hosted server
+from mcp_remote import mcp  # the oracle tools, registered once, shared with the hosted server (count derives from mcp_remote)
 
 
 def main():
