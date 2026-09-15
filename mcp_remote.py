@@ -783,6 +783,27 @@ def oracle_scorecard() -> dict:
 
 
 @mcp.tool()
+def jp_summary() -> dict:
+    """
+    The JAPANESE card market today, as numbers — no card names or prices.
+    How many cards the dealer panel priced this morning (365K+ across 24 games,
+    ~167K carrying BOTH an ask and a buyback bid), the dealer bid as a share of
+    ask at each price band (a bulk floor under ~¥300, a real quote above), depth
+    per game, how much of the board actually moved since yesterday and a week ago,
+    and the day's Merkle root with both chain txs. FREE, refreshes once per ingest
+    day. The only Japanese panel that is LIVE while the USD panel is frozen.
+    Use this when: "what did the Japanese market do today?", "is the dealer paying
+    more or less for cards this week?", or before reasoning about any single
+    Japanese card — the per-card page is /jp/card/{game}/{set_code}/{card_id}
+    (HTML, one card per request; there is deliberately no listing route).
+    """
+    try:
+        return _call_x402("/api/v1/jp/summary", {})
+    except Exception as e:
+        return {"status": "error", "message": str(e)[:200]}
+
+
+@mcp.tool()
 def sports_board(league: str = "", limit: int = 10) -> dict:
     """
     Daily sports movers board — hot, high-volume players per live league with

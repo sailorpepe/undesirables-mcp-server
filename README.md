@@ -9,7 +9,7 @@
 [![License: BSL-1.1](https://img.shields.io/badge/License-BSL_1.1-orange.svg?style=flat-square)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/undesirables-mcp-server.svg?style=flat-square)](https://pypi.org/project/undesirables-mcp-server/)
 
-**The TCG Oracle as an MCP server: 22 focused tools, the same ones the hosted endpoint serves — plus a separate 34-tool local agent kit**
+**The TCG Oracle as an MCP server: 23 focused tools, the same ones the hosted endpoint serves — plus a separate 34-tool local agent kit**
 
 *Install the package and the default command is the oracle over stdio (no keys, no wallet, no local models), or connect to the hosted endpoint at `mcp.the-undesirables.com`. Free tools answer directly; paid tools return x402 terms — pay-per-call in USDC, no account or API key.*
 
@@ -37,7 +37,7 @@ card collateral · `oracle_scorecard` — our public 30-day coverage record
 (93%+ on 181K+ matured forecasts, committed on-chain before outcomes).
 ```
 
-No install, no account, no API key. **22 tools** over streamable HTTP (MCP protocol
+No install, no account, no API key. **23 tools** over streamable HTTP (MCP protocol
 `2025-06-18`; legacy SSE also served). Free tools answer immediately. Paid tools return an
 x402 `payment_required` carrying amount, network, and `payTo` — an agent with a funded
 wallet can settle and retry in the same session. Settlement only occurs on a successful
@@ -74,7 +74,7 @@ carries a `set` field and a `product_id` you can pass straight to the other tool
 
 | Command | What it exposes | For |
 |---|---|---|
-| `undesirables-mcp` (default) | **The TCG Oracle — 22 tools**: search 456K+ cards (USD prices frozen 2026-09-07 — responses carry `usd_panel`), market snapshots (suspended while frozen), AI grading & grade-or-not, conformal-calibrated forecasts with a public accuracy scorecard, portfolio optimisation, card-collateral loan terms, fantasy & sports souls, the Syndicate, Technocore rooms. Backed by the public oracle API. | Anyone who wants the oracle in Claude Desktop, Cursor, Zed, LangChain… |
+| `undesirables-mcp` (default) | **The TCG Oracle — 23 tools**: search 456K+ cards (USD prices frozen 2026-09-07 — responses carry `usd_panel`), market snapshots (suspended while frozen), AI grading & grade-or-not, conformal-calibrated forecasts with a public accuracy scorecard, portfolio optimisation, card-collateral loan terms, fantasy & sports souls, the Syndicate, Technocore rooms. Backed by the public oracle API. | Anyone who wants the oracle in Claude Desktop, Cursor, Zed, LangChain… |
 | `undesirables-agent-kit` | **The local agent kit — 34 tools**: memory graph, RAG over a soul workspace, meme/banner/video/3D generation, voice, code & shell execution, security audits, web search. Runs entirely on your machine. | Undesirables holders running their soul as a local agent |
 
 v1.x shipped both surfaces under one command; v2 separates them so each server has one job. The hosted endpoint is unchanged.
@@ -84,7 +84,7 @@ v1.x shipped both surfaces under one command; v2 separates them so each server h
 ```bash
 pip install undesirables-mcp-server
 
-undesirables-mcp          # the TCG Oracle over stdio (22 tools, no keys) — default
+undesirables-mcp          # the TCG Oracle over stdio (23 tools, no keys) — default
 undesirables-agent-kit    # the local 34-tool agent kit
 ```
 
@@ -113,9 +113,9 @@ Claude Desktop / Cursor / Zed — add the oracle as a stdio server:
 
 ## What It Does
 
-### The TCG Oracle — `undesirables-mcp` (default), 22 tools, no keys
+### The TCG Oracle — `undesirables-mcp` (default), 23 tools, no keys
 
-The same 22 tools the hosted endpoint serves, over stdio. Free tools answer directly; paid tools return x402 terms (USDC on Base or Solana, USDG on Robinhood Chain) and are only charged on a successful response.
+The same 23 tools the hosted endpoint serves, over stdio. Free tools answer directly; paid tools return x402 terms (USDC on Base or Solana, USDG on Robinhood Chain) and are only charged on a successful response.
 
 | Area | Tools |
 |---|---|
@@ -126,7 +126,7 @@ The same 22 tools the hosted endpoint serves, over stdio. Free tools answer dire
 | 🎴 **Grading** | `grade_card` (3-stage vision pipeline, PSA/Beckett-calibrated), `grade_or_not` (GO / NO-GO with expected ROI) |
 | 🧾 **Public track record** | `oracle_scorecard` (30-day coverage on 181K+ matured forecasts, committed on-chain before outcomes) |
 | 🏦 **Card collateral** | `loan_terms_preview` (the Loan-Terms Oracle's six-step max-LTV derivation) |
-| 👻 **Souls & leagues** | `souls_in_wallet`, `soul_calls`, `fantasy_league` (4,444 AI personalities drafting weekly lineups), `sports_board` |
+| 👻 **Souls & leagues** | `souls_in_wallet`, `soul_calls`, `fantasy_league` (4,444 AI personalities drafting weekly lineups), `sports_board`, `jp_summary` (the Japanese dealer panel as aggregates — free) |
 | 🕹️ **The Syndicate** | `syndicate_state`, `syndicate_move`, `syndicate_leaderboard` — a turn-based strategy game agents can play |
 | 💬 **technocore.chat (read-only)** | `technocore_rooms`, `technocore_room`, `technocore_info`, `technocore_note` |
 | 🧭 **Routing** | `recommend_workflow` — describe a goal, get the call sequence |
@@ -140,11 +140,11 @@ Turns an Undesirable NFT soul workspace into a local agent: persistent memory gr
 <details>
 <summary><strong>What's New in v2.1.0 / v2.0.x</strong></summary>
 
-**2.1.0** — `check_accuracy` removed. It returned exactly what `oracle_scorecard` returns (same endpoint) and ignored its `game` argument, so it only existed to confuse an agent choosing between the two. Callers: switch to `oracle_scorecard`. The oracle is 22 tools.
+**2.1.0** — `check_accuracy` removed. It returned exactly what `oracle_scorecard` returns (same endpoint) and ignored its `game` argument, so it only existed to confuse an agent choosing between the two. Callers: switch to `oracle_scorecard`. The oracle is 23 tools.
 
 **2.0.1** — tool descriptions rewritten so overlapping pairs state distinct jobs (`card_forecast` = free fixed 30-day read, `simulate_price` = paid custom horizon + full distribution; `market_snapshot` = the day's market report, `trending_cards` = ranked pick list; the four `technocore_*` readers numbered 1-4). `check_accuracy` is now a documented deprecated alias of `oracle_scorecard` (same data; removal planned for 2.1).
 
-- **The oracle is the default server.** `undesirables-mcp` (and `undesirables-mcp-server`) now start the 22-tool TCG Oracle over stdio — the same tools as `https://mcp.the-undesirables.com`, with no keys, wallet, or local models.
+- **The oracle is the default server.** `undesirables-mcp` (and `undesirables-mcp-server`) now start the 23-tool TCG Oracle over stdio — the same tools as `https://mcp.the-undesirables.com`, with no keys, wallet, or local models.
 - **The agent kit has its own command.** The 34-tool local kit moved to `undesirables-agent-kit`. Nothing was removed; each server now has one job.
 - **Dependencies pinned** to `fastmcp<4` and `mcp<2` so fresh installs keep working across SDK major bumps.
 - Newest oracle tools (Sept 2026): `fantasy_league`, `loan_terms_preview`, `oracle_scorecard`, `sports_board`, the Syndicate trio, and the technocore.chat readers.
@@ -221,7 +221,7 @@ The kit uses the 16 GB `FLUX.1-schnell` model for fully offline memes and illust
 
 ## Technical Architecture (agent kit)
 
-This section describes `undesirables-agent-kit`. (The oracle is a thin stdio wrapper over the same 22 tools the hosted endpoint serves; nothing below applies to it.)
+This section describes `undesirables-agent-kit`. (The oracle is a thin stdio wrapper over the same 23 tools the hosted endpoint serves; nothing below applies to it.)
 
 The agent kit exposes your local NFT soul via the [Model Context Protocol](https://modelcontextprotocol.io) standard.
 
@@ -368,7 +368,7 @@ pip install litvm-tcg-oracle
 - **npm**: [plugin-undesirables](https://npmjs.com/package/plugin-undesirables) (ElizaOS plugin, v2.7.0)
 - **Oracle API**: [oracle.the-undesirables.com](https://oracle.the-undesirables.com) (31 endpoints, x402 micropayments)
 - **awesome-mcp-servers**: [Listed ✅](https://github.com/punkpeye/awesome-mcp-servers) (94K+ ⭐, both servers listed)
-- **Glama**: [Verified ✅ — tool quality A, 22 tools](https://glama.ai/mcp/servers/sailorpepe/undesirables-mcp-server)
+- **Glama**: [Verified ✅ — tool quality A, 23 tools](https://glama.ai/mcp/servers/sailorpepe/undesirables-mcp-server)
 - **ElizaOS Plugin**: [Official monorepo](https://github.com/elizaOS/eliza/tree/develop/plugins/plugin-undesirables)
 - **x402 Payment Server**: [undesirables-x402-server](https://github.com/sailorpepe/undesirables-x402-server)
 - **Price data**: originates with TCGplayer. No rights claimed in the underlying prices;
