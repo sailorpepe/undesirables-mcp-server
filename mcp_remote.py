@@ -804,6 +804,91 @@ def jp_summary() -> dict:
 
 
 @mcp.tool()
+def graded_asks(product_id: int) -> dict:
+    """
+    GRADED SLAB asking prices for one card — PSA/BGS/CGC medians by grade with
+    listing counts, low/high, an as-of date per grade and the explicit price_basis
+    (these are eBay ASKS, not sold prices; asks are a ceiling). FREE, refreshed
+    daily by the eBay enrichment, merkle-committed on GradedPriceOracle. The LIVE
+    value layer while the USD raw-card panel is frozen — and the basis the graded-
+    slab loan terms are built on. product_id = TCGplayer id from search.
+    Use this when: "what does a PSA 10 of this go for?", "raw vs graded premium?",
+    or before loan_terms_preview / the paid /api/v1/loan-terms quote.
+    """
+    try:
+        return _call_x402("/api/v1/graded", {"product_id": int(product_id)})
+    except Exception as e:
+        return {"status": "error", "message": str(e)[:200]}
+
+
+@mcp.tool()
+def loan_universe() -> dict:
+    """
+    Every graded slab the Loan-Terms Oracle will quote — ~1,100 slabs with grade,
+    live ask median, census depth, liquidity tier (deep/moderate/thin/illiquid),
+    rank and a free_board flag (top 250 by census depth carry a free worked
+    derivation via loan_terms_preview). FREE. v2 (2026-09-12): graded slabs only —
+    raw-card quotes are no longer issued because the USD level froze 2026-09-07.
+    Use this when: an agent needs a product_id + grade to ask for terms, or wants
+    to know which collateral is deep enough to lend against at all.
+    """
+    try:
+        return _call_x402("/api/v1/loan-terms/universe", {})
+    except Exception as e:
+        return {"status": "error", "message": str(e)[:200]}
+
+
+@mcp.tool()
+def census_summary() -> dict:
+    """
+    The observed graded-slab CENSUS as totals: how many PSA/BGS/CGC/TAG slabs the
+    oracle tracks circulating on the open market (cert-verified — what is listed
+    and pressing on price, NOT a pop report), unique certs, cards covered, grader
+    mix, active-30d counts. FREE, daily, census leaves committed on-chain. The
+    per-card census with median asks is the paid /api/v1/census ($0.05).
+    Use this when: sizing supply behind a grade, or judging how thin a slab
+    market is before trusting an ask.
+    """
+    try:
+        return _call_x402("/api/v1/census/summary", {})
+    except Exception as e:
+        return {"status": "error", "message": str(e)[:200]}
+
+
+@mcp.tool()
+def sports_players(league: str = "", query: str = "") -> dict:
+    """
+    The sports player directory — ids, names, teams and positions for the
+    leagues currently ON THE BOARD (a league appears once it is in season with
+    enough games for the panel; off-season leagues are absent, not stale), the
+    ids the paid /api/v1/sports/forecast ($0.05) and the fantasy league key on.
+    FREE. Filter by league (mlb, nba, ncaab, ncaaf, nfl, nhl) and/or a name
+    fragment; an absent league returns zero players, which is the honest answer.
+    Use this when: an agent has a player name and needs the id, or wants to
+    enumerate a league's roster on the stat panel.
+    """
+    try:
+        # the directory endpoint returns every league at once; filter here
+        d = _call_x402("/api/v1/sports/players", {})
+        leagues = d.get("leagues") if isinstance(d, dict) else None
+        if not isinstance(leagues, dict):
+            return d
+        lg = str(league).strip().lower(); q = str(query).strip().lower()
+        out = {}
+        for name, players in leagues.items():
+            if lg and name != lg:
+                continue
+            rows = [p for p in players if not q or q in str(p.get("name", "")).lower()]
+            if rows:
+                out[name] = rows[:200]
+        return {"status": "ok", "league": lg or "all", "query": q or None,
+                "players": sum(len(v) for v in out.values()), "leagues": out,
+                "forecast": "/api/v1/sports/forecast?league=<league>&player_id=<id> ($0.05)"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)[:200]}
+
+
+@mcp.tool()
 def sports_board(league: str = "", limit: int = 10) -> dict:
     """
     Daily sports movers board — hot, high-volume players per live league with
