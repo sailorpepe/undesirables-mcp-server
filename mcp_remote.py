@@ -901,17 +901,27 @@ def sports_players(league: str = "", query: str = "") -> dict:
     enumerate a league's roster on the stat panel.
     """
     try:
-        # the directory endpoint returns every league at once; filter here
-        d = _call_x402("/api/v1/sports/players", {})
+        # Filters are applied SERVER-SIDE since 2026-09-24 — the endpoint used
+        # to drop them silently and return the whole ~116 KB directory, so this
+        # tool filtered locally. Params are still re-applied below so an older
+        # oracle build (or a self-hosted one) behaves identically.
+        lg = str(league).strip().lower(); q = str(query).strip().lower()
+        params = {}
+        if lg:
+            params["league"] = lg
+        if q:
+            params["query"] = q
+        d = _call_x402("/api/v1/sports/players", params)
         leagues = d.get("leagues") if isinstance(d, dict) else None
         if not isinstance(leagues, dict):
             return d
-        lg = str(league).strip().lower(); q = str(query).strip().lower()
         out = {}
         for name, players in leagues.items():
             if lg and name != lg:
                 continue
-            rows = [p for p in players if not q or q in str(p.get("name", "")).lower()]
+            rows = [p for p in players
+                    if not q or q in str(p.get("name", "")).lower()
+                    or q in str(p.get("team", "")).lower()]
             if rows:
                 out[name] = rows[:200]
         return {"status": "ok", "league": lg or "all", "query": q or None,
