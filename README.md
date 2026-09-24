@@ -283,7 +283,7 @@ async with MultiServerMCPClient({
     }
 }) as client:
     tools = client.get_tools()
-    # the 22 oracle tools, now available to any LangChain agent
+    # the 27 oracle tools, now available to any LangChain agent
     # (for the agent kit use command="undesirables-agent-kit", args=["--workspace", ".../soul_folder/0420"])
 ```
 
@@ -349,7 +349,7 @@ pip install litvm-tcg-oracle
 | **13.5M+ price observations** | 60+ days of continuous data |
 | **On-chain Merkle proofs** | Trustless verification on LiteForge (Chain 4441) |
 | **Risk forecast** | Conformal-calibrated VaR/CVaR + Safe-Hold/Momentum grades (Monte Carlo opt-in) |
-| **13 MCP tools** | `search_cards`, `get_price`, `get_merkle_proof`, `get_graded_proof`, `oracle_status`, `get_forecast`, `simulate_price`, `get_market_snapshot`, `get_fantasy_league`, `get_oracle_scorecard`, `get_loan_terms_preview`, `get_sports_board`, `get_census_summary` — also hosted at `https://litvm.the-undesirables.com/mcp` |
+| **16 MCP tools** | `search_cards`, `get_price`, `get_merkle_proof`, `get_graded_proof`, `oracle_status`, `get_forecast`, `simulate_price`, `get_market_snapshot`, `get_jp_summary`, `get_graded_asks`, `get_loan_universe`, `get_loan_terms_preview`, `get_sports_board`, `get_fantasy_league`, `get_census_summary`, `get_oracle_scorecard` |
 
 → **GitHub**: [litvm-tcg-oracle-mcp](https://github.com/sailorpepe/litvm-tcg-oracle-mcp)  
 → **PyPI**: [litvm-tcg-oracle](https://pypi.org/project/litvm-tcg-oracle/)  
