@@ -822,18 +822,51 @@ def graded_asks(product_id: int) -> dict:
 
 
 @mcp.tool()
-def loan_universe() -> dict:
+def loan_universe(limit: int = 50, tier: str = "", free_board_only: bool = False,
+                  min_value_usd: float = 0.0) -> dict:
     """
-    Every graded slab the Loan-Terms Oracle will quote — ~1,100 slabs with grade,
-    live ask median, census depth, liquidity tier (deep/moderate/thin/illiquid),
-    rank and a free_board flag (top 250 by census depth carry a free worked
-    derivation via loan_terms_preview). FREE. v2 (2026-09-12): graded slabs only —
-    raw-card quotes are no longer issued because the USD level froze 2026-09-07.
+    The graded slabs the Loan-Terms Oracle will quote, best collateral first —
+    grade, live ask median, census depth, liquidity tier (deep/moderate/thin/
+    illiquid), rank, and a free_board flag (top 250 by census depth carry a free
+    worked derivation via loan_terms_preview). FREE. v2 (2026-09-12): graded
+    slabs only — raw-card quotes stopped when the USD level froze 2026-09-07.
+
+    Returns a PAGE, not the whole book: the full universe is ~1,400 slabs and
+    serialises to ~500 KB, which would swamp an agent's context in one call.
+    `total_matching` and `returned` tell you what you are looking at.
+
+    limit           rows to return (default 50, max 500)
+    tier            'deep' | 'moderate' | 'thin' | 'illiquid'
+    free_board_only True to keep only slabs with a free worked derivation
+    min_value_usd   drop slabs whose ask median is below this (0 = no floor)
+
     Use this when: an agent needs a product_id + grade to ask for terms, or wants
     to know which collateral is deep enough to lend against at all.
     """
     try:
-        return _call_x402("/api/v1/loan-terms/universe", {})
+        d = _call_x402("/api/v1/loan-terms/universe", {})
+        if not isinstance(d, dict) or "cards" not in d:
+            return d
+        cards = d.get("cards") or []
+        if tier:
+            t = str(tier).strip().lower()
+            cards = [c for c in cards if str(c.get("liquidity_tier", "")).lower() == t]
+        if free_board_only:
+            cards = [c for c in cards if c.get("free_board")]
+        if min_value_usd:
+            cards = [c for c in cards if (c.get("ask_median_usd") or 0) >= float(min_value_usd)]
+        matching = len(cards)
+        n = max(1, min(int(limit), 500))
+        d["cards"] = cards[:n]
+        d["returned"] = len(d["cards"])
+        d["total_matching"] = matching
+        d["filters"] = {"tier": tier or None, "free_board_only": free_board_only,
+                        "min_value_usd": min_value_usd or None, "limit": n}
+        d["paging_note"] = (
+            f"showing {len(d['cards'])} of {matching} matching slabs (universe total {d.get('total')}). "
+            "Narrow with tier / free_board_only / min_value_usd, or raise limit (max 500). "
+            "The full universe is ~500 KB and is deliberately not returned in one call.")
+        return d
     except Exception as e:
         return {"status": "error", "message": str(e)[:200]}
 
