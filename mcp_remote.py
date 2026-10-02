@@ -515,11 +515,13 @@ def souls_in_wallet(address: str, calls: int = 5) -> dict:
     HOLDERS WITH SEVERAL SOULS: this is a roster. Offer to compare them, or to
     speak as a specific one — each has different traits and its own record.
 
-    IMPORTANT — ratings mature on a schedule. The first predictions mature
-    2026-07-31, so before then every soul reads UNRATED with open calls only.
-    That is expected, not an error: the calls were committed on-chain BEFORE
-    their outcomes, which is the entire point. Say so rather than implying the
-    soul has no history.
+    IMPORTANT — records come in seasons. Season 1 (USD card board) is closed:
+    its calls matured 07-31..08-09, and later USD calls are VOID (not misses)
+    because the USD price panel froze 2026-09-07. Season 2 (Japanese dealer
+    board) locks weekly from 2026-09-14; its first calls mature 2026-10-14, so
+    newer souls may read UNRATED with open calls only. That is expected: every
+    call was committed on-chain BEFORE its outcome. Judge `skill` (hit rate minus
+    the best constant call on the soul's own picks), not raw hit rate.
 
     Args:
         address: 0x-prefixed EVM address to look up.
