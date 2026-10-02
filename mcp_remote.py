@@ -220,9 +220,12 @@ def market_snapshot(game: str = "") -> dict:
 
 
 # ---------------------------------------------------------------------------
-# [TCG] AI Card Grading — $0.10
+# [TCG] AI Card Grading — RETIRED 2026-10-02 (pay-per-call paused; the oracle
+# answers 410). Code kept: set GRADING_TOOLS_ENABLED = True to re-register.
 # ---------------------------------------------------------------------------
-@mcp.tool()
+GRADING_TOOLS_ENABLED = False
+
+
 def grade_card(
     image_url: str,
     game: str = "Pokemon",
@@ -249,9 +252,8 @@ def grade_card(
 
 
 # ---------------------------------------------------------------------------
-# [TCG] Grade-or-Not ROI Engine — $0.10
+# [TCG] Grade-or-Not ROI Engine — RETIRED 2026-10-02 with grading (see above)
 # ---------------------------------------------------------------------------
-@mcp.tool()
 def grade_or_not(
     card_name: str,
     raw_price: float = 0.0,
@@ -276,6 +278,11 @@ def grade_or_not(
     if predicted_grade > 0:
         params["predicted_grade"] = predicted_grade
     return _call_x402("/api/v1/grade-or-not", params)
+
+
+if GRADING_TOOLS_ENABLED:
+    mcp.tool()(grade_card)
+    mcp.tool()(grade_or_not)
 
 
 # ---------------------------------------------------------------------------
@@ -813,7 +820,7 @@ def graded_asks(product_id: int) -> dict:
     value layer while the USD raw-card panel is frozen — and the basis the graded-
     slab loan terms are built on. product_id = TCGplayer id from search.
     Use this when: "what does a PSA 10 of this go for?", "raw vs graded premium?",
-    or before loan_terms_preview / the paid /api/v1/loan-terms quote.
+    or before loan_terms_preview / the free /api/v1/loan-terms quote.
     """
     try:
         return _call_x402("/api/v1/graded", {"product_id": int(product_id)})
@@ -878,7 +885,7 @@ def census_summary() -> dict:
     oracle tracks circulating on the open market (cert-verified — what is listed
     and pressing on price, NOT a pop report), unique certs, cards covered, grader
     mix, active-30d counts. FREE, daily, census leaves committed on-chain. The
-    per-card census with median asks is the paid /api/v1/census ($0.05).
+    per-card census with median asks is /api/v1/census (free).
     Use this when: sizing supply behind a grade, or judging how thin a slab
     market is before trusting an ask.
     """
@@ -894,7 +901,7 @@ def sports_players(league: str = "", query: str = "") -> dict:
     The sports player directory — ids, names, teams and positions for the
     leagues currently ON THE BOARD (a league appears once it is in season with
     enough games for the panel; off-season leagues are absent, not stale), the
-    ids the paid /api/v1/sports/forecast ($0.05) and the fantasy league key on.
+    ids /api/v1/sports/forecast (free for MLB, $0.05 other leagues) and the fantasy league key on.
     FREE. Filter by league (mlb, nba, ncaab, ncaaf, nfl, nhl) and/or a name
     fragment; an absent league returns zero players, which is the honest answer.
     Use this when: an agent has a player name and needs the id, or wants to
@@ -926,7 +933,7 @@ def sports_players(league: str = "", query: str = "") -> dict:
                 out[name] = rows[:200]
         return {"status": "ok", "league": lg or "all", "query": q or None,
                 "players": sum(len(v) for v in out.values()), "leagues": out,
-                "forecast": "/api/v1/sports/forecast?league=<league>&player_id=<id> ($0.05)"}
+                "forecast": "/api/v1/sports/forecast?league=<league>&player_id=<id> (free for MLB, $0.05 other leagues)"}
     except Exception as e:
         return {"status": "error", "message": str(e)[:200]}
 
@@ -941,7 +948,7 @@ def sports_board(league: str = "", limit: int = 10) -> dict:
     calibration verdict (the bands are validated daily against a 90% target).
 
     Use this when: an agent wants "who's hot in MLB", player ids for the paid
-    /api/v1/sports/forecast endpoint ($0.05 — full per-stat calibrated bands),
+    /api/v1/sports/forecast endpoint (free for MLB, $0.05 other leagues — full per-stat calibrated bands),
     or fantasy-adjacent market context. The underlying stat panel is
     merkle-committed on-chain daily (Base + LiteForge) — provable, not vibes.
     """
@@ -1127,10 +1134,8 @@ is working.</p>
 <p class=n>No install. No API key. No account.</p>
 <p>You get {len(mcp._tool_manager.list_tools())} tools over 456K+ trading-card products across 25+ games:
 free search (USD prices dated in-band, frozen since 2026-09-07), sports boards, souls,
-the slab census, graded asks and accuracy stats; paid tools (AI card grading, graded-slab
-loan terms, sports forecasts, the crypto oracle) answer with an
-x402 payment request in USDC on Base, so a funded agent can settle and retry —
-still no signup.</p>
+the slab census, graded asks, graded-slab loan terms and accuracy stats — all free:
+pay-per-call is paused, so nothing asks for payment. Still no signup.</p>
 <p class=n><b>Data freshness:</b> USD prices are currently frozen at their last
 good date — the upstream feed is unavailable. Every price carries its own as-of
 date. A Japanese-print panel (24 games, ~364K cards, ~167K with both an ask and a
