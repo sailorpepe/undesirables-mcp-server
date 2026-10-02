@@ -160,7 +160,7 @@ Turns an Undesirable NFT soul workspace into a local agent: persistent memory gr
 ### 🛑 Prerequisites
 1. **[Python](https://www.python.org/downloads/)** 3.10 or higher.
 2. **[Ollama](https://ollama.com/)** — download it *and run it*. The llama icon must be in your menu bar / taskbar, or local inference fails immediately.
-3. A **soul workspace** folder downloaded from [the-undesirables.com](https://the-undesirables.com) (for example `soul_folder/0420`).
+3. A **soul workspace** folder downloaded from [the-undesirables.com](https://the-undesirables.com) (for example `soul_folder/XXXX`).
 
 ### 🛠️ Install
 
@@ -181,10 +181,10 @@ pip install -r requirements.txt
 
 ```bash
 # point --workspace at your EXACT soul folder
-undesirables-agent-kit --workspace "/Users/you/Desktop/soul_folder/0420"
+undesirables-agent-kit --workspace "/Users/you/Desktop/soul_folder/XXXX"
 ```
 
-(From a clone: `python server.py --workspace ".../soul_folder/0420"`.) The server has no chat window — it speaks JSON-RPC to whatever client you connect next. Don't type into that terminal.
+(From a clone: `python server.py --workspace ".../soul_folder/XXXX"`.) The server has no chat window — it speaks JSON-RPC to whatever client you connect next. Don't type into that terminal.
 
 ### 🔌 Connect Claude Desktop
 
@@ -195,7 +195,7 @@ undesirables-agent-kit --workspace "/Users/you/Desktop/soul_folder/0420"
   "mcpServers": {
     "undesirables-agent-kit": {
       "command": "undesirables-agent-kit",
-      "args": ["--workspace", "/Users/you/Desktop/soul_folder/0420"]
+      "args": ["--workspace", "/Users/you/Desktop/soul_folder/XXXX"]
     }
   }
 }
@@ -283,7 +283,7 @@ async with MultiServerMCPClient({
 }) as client:
     tools = client.get_tools()
     # the 25 oracle tools, now available to any LangChain agent
-    # (for the agent kit use command="undesirables-agent-kit", args=["--workspace", ".../soul_folder/0420"])
+    # (for the agent kit use command="undesirables-agent-kit", args=["--workspace", ".../soul_folder/XXXX"])
 ```
 
 ### CrewAI
@@ -326,7 +326,7 @@ Add to your `character.json`:
 ```json
 {
   "settings": {
-    "UNDESIRABLES_WORKSPACE": "/path/to/soul_folder/0420"
+    "UNDESIRABLES_WORKSPACE": "/path/to/soul_folder/XXXX"
   },
   "plugins": ["plugin-undesirables"]
 }
