@@ -3,7 +3,7 @@
 The Undesirables TCG Oracle — local stdio MCP server (the default entry point).
 
 One focused surface: the 22 oracle tools — search 455K+ trading cards, live
-market snapshots, AI grading and grade-or-not decisions, conformal-calibrated
+market snapshots, conformal-calibrated
 price forecasts with a public accuracy scorecard, portfolio optimisation,
 card-collateral loan terms, the fantasy and sports souls leagues, the
 Syndicate game, and the Technocore rooms — everything proven on-chain.
