@@ -4,4 +4,3 @@ include requirements.txt
 include TUTORIAL.md
 include og_preview.png
 include *.pyi
-recursive-include demo-soul *.md *.json
