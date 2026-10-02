@@ -9,10 +9,10 @@ can connect and interact with Undesirable agents using this server.
 
 Usage:
     # Point to a soul workspace folder
-    python server.py --workspace ./path/to/soul/0420
+    python server.py --workspace ./path/to/soul/XXXX
 
     # Or specify a token ID and souls directory
-    python server.py --token 420 --souls-dir ./souls
+    python server.py --token <your-token-id> --souls-dir ./souls
 
     # Run with stdio transport (for IDE integration)
     fastmcp run server.py

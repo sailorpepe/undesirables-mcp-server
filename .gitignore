@@ -9,7 +9,9 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-# characters/ — required for production bundle
+# Converted soul characters are holder-only content (a holder generates their
+# own from their downloaded workspace). Never commit one: unminted souls are sealed.
+characters/*.character.json
 
 # Secrets — NEVER commit
 .env

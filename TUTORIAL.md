@@ -121,8 +121,9 @@ export UNDESIRABLES_WORKSPACE=/path/to/your/soul-workspace
 ## Step 7: Launch Your Agent
 
 ```bash
-# Start ElizaOS with your character
-elizaos start --character ./characters/undesirable_0420.character.json
+# Start ElizaOS with the character file you generated in Step 3
+# (soul-to-eliza.js writes characters/undesirable_XXXX.character.json for your token)
+elizaos start --character ./characters/undesirable_XXXX.character.json
 ```
 
 Your Undesirable is now live! It will respond in character using its unique personality, with access to all 23 skills.

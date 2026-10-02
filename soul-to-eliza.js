@@ -3,8 +3,8 @@
  * soul-to-eliza.js — Convert Undesirable Soul Workspaces to ElizaOS character.json
  * 
  * Usage:
- *   node soul-to-eliza.js --workspace ./path/to/soul/0420
- *   node soul-to-eliza.js --token 420 --souls-dir ./souls
+ *   node soul-to-eliza.js --workspace ./path/to/soul/XXXX
+ *   node soul-to-eliza.js --token <your-token-id> --souls-dir ./souls
  *   node soul-to-eliza.js --all --souls-dir ./souls --out ./characters
  */
 
@@ -324,7 +324,7 @@ function main() {
     console.log(`✅ Converted → ${outPath}`);
   } else {
     console.log('Usage:');
-    console.log('  node soul-to-eliza.js --token 420');
+    console.log('  node soul-to-eliza.js --token <your-token-id>');
     console.log('  node soul-to-eliza.js --workspace ./path/to/soul');
     console.log('  node soul-to-eliza.js --all --souls-dir ./souls --out ./characters');
   }
